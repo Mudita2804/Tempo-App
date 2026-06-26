@@ -1,0 +1,61 @@
+/* Design tokens — mirror of lib/tokens.ts. See ../README.md for the full system. */
+:root {
+  --accent: #3f9d5f;
+  --accent-hover: #368a53;
+  --accent-tint: #e8f3ec;
+  --accent-deep: #256b3f;
+  --accent-border: #b6dcc3;
+
+  --ink: #211e1a;
+  --ink-2: #3a3530;
+  --text-muted: #6b655c;
+  --faint: #8a8478;
+  --faint-2: #aaa297;
+
+  --page: #f7f4ef;
+  --surface: #ffffff;
+  --fill: #f3efe8;
+
+  --border: #ece6dc;
+  --border-2: #efe9e0;
+
+  --macro-protein: #3f9d5f;
+  --macro-carbs: #c9b48a;
+  --macro-fat: #d99a6c;
+
+  --over: #c0492f;
+  --over-text: #b3502f;
+  --over-bg: #fbeae3;
+
+  --strava: #fc4c02;
+
+  --font-ui: 'Hanken Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--page); }
+body {
+  font-family: var(--font-ui);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+input, button { font-family: inherit; }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: #dcd5ca; border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes tpulse {
+  0% { box-shadow: 0 0 0 0 rgba(63, 157, 95, 0.45); }
+  70% { box-shadow: 0 0 0 16px rgba(63, 157, 95, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(63, 157, 95, 0); }
+}
+@keyframes tdot {
+  0%, 60%, 100% { opacity: 0.25; }
+  30% { opacity: 1; }
+}
+@keyframes tslide {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
