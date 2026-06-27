@@ -16,6 +16,7 @@ export default function Page() {
 
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) void initFromSupabase(user);
+      else window.location.href = '/login';
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
