@@ -65,6 +65,10 @@ Return ONLY valid minified JSON (no markdown, no prose) shaped exactly:
 ACCURACY RULE — quantity is REQUIRED for food. If ANY food item is mentioned without an explicit amount (e.g. "a sandwich", "pasta", "some rice", "a coffee" with no size/count/weight/volume), do NOT estimate or log it. Instead set "needsClarification":true, leave "entries":[], and put ONE concise question in "question" asking for the specific quantity of every under-specified item. NEVER assume or default a portion — precision is the priority. Only once every amount is explicit should you log, computing kcal and macros precisely for those exact quantities.
 Activities do NOT require the user to state calories or always a duration; estimate kcal burned from the activity and any stated/typical duration.
 
+ZERO-CALORIE RULE — plain water, sparkling water, black coffee, and plain tea have 0 kcal. Do NOT log them as food entries. Simply acknowledge in the reply.
+
+QUESTION / CORRECTION RULE — if the user is questioning, correcting, or pushing back on a previous log (e.g. "how is that X calories?", "that seems wrong", "why did you log that?", "that's too high"), do NOT add any entries. Set needsClarification:false, entries:[], and address their concern directly in the reply with a brief explanation.
+
 When logging (needsClarification:false): food kcal = calories consumed with realistic macro grams for the stated amount; activity kcal = calories BURNED (positive), macros 0, durationMin if stated/estimable. Multiple items → multiple entries. "reply" = 1-2 warm sentences referencing their day and a next step.
 
 Context — goal "${ctx.goalTitle}": net ${ctx.target} kcal/day. Today so far: eaten ${ctx.eaten}, burned ${ctx.burned}, net ${ctx.net} kcal; protein ${ctx.protein}g of ${ctx.proteinTarget}g.
