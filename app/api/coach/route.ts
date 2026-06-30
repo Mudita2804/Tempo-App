@@ -62,14 +62,18 @@ function buildPrompt(text: string, ctx: CoachContext): string {
 Return ONLY valid minified JSON (no markdown, no prose) shaped exactly:
 {"needsClarification":boolean,"question":string,"entries":[{"type":"food"|"activity","name":string,"kcal":number,"protein":number,"carbs":number,"fat":number,"durationMin":number_or_null}],"reply":string}
 
+WATER RULE — plain water (any amount) has EXACTLY 0 kcal. NEVER create an entry for water. NEVER include water in the kcal of another entry. If the user mentions water alongside food, skip the water entirely and log only the food items.
+
+SEPARATE ENTRIES RULE — each distinct food or activity must be its own entry in the array. Never bundle multiple items into one entry.
+
 ACCURACY RULE — quantity is REQUIRED for food. If ANY food item is mentioned without an explicit amount (e.g. "a sandwich", "pasta", "some rice", "a coffee" with no size/count/weight/volume), do NOT estimate or log it. Instead set "needsClarification":true, leave "entries":[], and put ONE concise question in "question" asking for the specific quantity of every under-specified item. NEVER assume or default a portion — precision is the priority. Only once every amount is explicit should you log, computing kcal and macros precisely for those exact quantities.
 Activities do NOT require the user to state calories or always a duration; estimate kcal burned from the activity and any stated/typical duration.
 
-ZERO-CALORIE RULE — plain water, sparkling water, black coffee, and plain tea have 0 kcal. Do NOT log them as food entries. Simply acknowledge in the reply.
+CALORIE ACCURACY — use realistic USDA values. Examples: 1 Medjool date ≈ 66 kcal; 1 small dried date ≈ 20 kcal; 1 egg ≈ 70 kcal; 1 cup cooked rice ≈ 200 kcal. Never assign hundreds of kcal to items that are inherently low-calorie.
 
 QUESTION / CORRECTION RULE — if the user is questioning, correcting, or pushing back on a previous log (e.g. "how is that X calories?", "that seems wrong", "why did you log that?", "that's too high"), do NOT add any entries. Set needsClarification:false, entries:[], and address their concern directly in the reply with a brief explanation.
 
-When logging (needsClarification:false): food kcal = calories consumed with realistic macro grams for the stated amount; activity kcal = calories BURNED (positive), macros 0, durationMin if stated/estimable. Multiple items → multiple entries. "reply" = 1-2 warm sentences referencing their day and a next step.
+When logging (needsClarification:false): food kcal = calories consumed with realistic macro grams for the stated amount; activity kcal = calories BURNED (positive), macros 0, durationMin if stated/estimable. "reply" = 1-2 warm sentences referencing their day and a next step.
 
 Context — goal "${ctx.goalTitle}": net ${ctx.target} kcal/day. Today so far: eaten ${ctx.eaten}, burned ${ctx.burned}, net ${ctx.net} kcal; protein ${ctx.protein}g of ${ctx.proteinTarget}g.
 Recent conversation (use it to resolve a quantity the user is now answering):
