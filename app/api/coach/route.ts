@@ -3,17 +3,11 @@ import type { CoachContext, CoachResponse } from '@/lib/types';
 
 export const runtime = 'nodejs';
 
-// Google Gemini (free tier). Get a key at https://aistudio.google.com/apikey
 const MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 
-/**
- * POST /api/coach
- * body: { text: string, ctx: CoachContext }
- * → CoachResponse (strict JSON contract, see ../README.md → LLM contract)
- *
- * Precision rule: food without an explicit quantity must NOT be logged — the
- * model returns needsClarification:true with a question instead.
- */
+// Names that are purely zero-calorie drinks — strip them regardless of what the model returns.
+const ZERO_CAL_ENTRY = /^\s*(plain\s+)?(still\s+|sparkling\s+|mineral\s+)?water(\s+\d+\s*(ml|l|oz|cups?)?)?\s*$/i;
+
 export async function POST(req: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -31,7 +25,6 @@ export async function POST(req: Request) {
   }
   if (!text) return NextResponse.json({ error: 'empty text' }, { status: 400 });
 
-  const prompt = buildPrompt(text, ctx);
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
 
   try {
@@ -39,9 +32,9 @@ export async function POST(req: Request) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        // Ask Gemini to return raw JSON so parsing is reliable.
-        generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
+        systemInstruction: { parts: [{ text: SYSTEM }] },
+        contents: [{ role: 'user', parts: [{ text: buildUserTurn(text, ctx) }] }],
+        generationConfig: { temperature: 0.2, responseMimeType: 'application/json' },
       }),
     });
     if (!r.ok) {
@@ -57,29 +50,36 @@ export async function POST(req: Request) {
   }
 }
 
-function buildPrompt(text: string, ctx: CoachContext): string {
-  return `You log food and exercise a user describes, for a fitness app called Tempo, replying as a warm, encouraging coach.
-Return ONLY valid minified JSON (no markdown, no prose) shaped exactly:
+// ─── System instruction (higher model priority than user turn) ────────────────
+
+const SYSTEM = `You are a warm, encouraging fitness coach for an app called Tempo. You log food and exercise the user describes.
+
+Return ONLY valid minified JSON — no markdown, no prose — shaped exactly:
 {"needsClarification":boolean,"question":string,"entries":[{"type":"food"|"activity","name":string,"kcal":number,"protein":number,"carbs":number,"fat":number,"durationMin":number_or_null}],"reply":string}
 
-WATER RULE — plain water (any amount) has EXACTLY 0 kcal. NEVER create an entry for water. NEVER include water in the kcal of another entry. If the user mentions water alongside food, skip the water entirely and log only the food items.
+RULE 1 — WATER HAS ZERO CALORIES. Plain water, sparkling water, mineral water = 0 kcal. Never create an entry for water. Never add water's "calories" to another entry. If the user mentions water alongside food, silently skip the water and only log the food items. This rule is absolute and overrides all other reasoning.
 
-SEPARATE ENTRIES RULE — each distinct food or activity must be its own entry in the array. Never bundle multiple items into one entry.
+RULE 2 — ONE ENTRY PER FOOD ITEM. Each distinct food or activity must be its own entry. Never merge multiple foods into a single entry.
 
-ACCURACY RULE — quantity is REQUIRED for food. If ANY food item is mentioned without an explicit amount (e.g. "a sandwich", "pasta", "some rice", "a coffee" with no size/count/weight/volume), do NOT estimate or log it. Instead set "needsClarification":true, leave "entries":[], and put ONE concise question in "question" asking for the specific quantity of every under-specified item. NEVER assume or default a portion — precision is the priority. Only once every amount is explicit should you log, computing kcal and macros precisely for those exact quantities.
-Activities do NOT require the user to state calories or always a duration; estimate kcal burned from the activity and any stated/typical duration.
+RULE 3 — QUANTITY REQUIRED FOR FOOD. If any food item lacks an explicit quantity (count, weight, or volume), do not log it. Instead return needsClarification:true, entries:[], and ask for the missing quantity in "question".
 
-CALORIE ACCURACY — use realistic USDA values. Examples: 1 Medjool date ≈ 66 kcal; 1 small dried date ≈ 20 kcal; 1 egg ≈ 70 kcal; 1 cup cooked rice ≈ 200 kcal. Never assign hundreds of kcal to items that are inherently low-calorie.
+RULE 4 — ACCURATE USDA CALORIES. Use real values: 1 Medjool date = 66 kcal; 1 small dried date = 20 kcal; 1 large egg = 72 kcal; 1 cup cooked white rice = 206 kcal; 1 medium banana = 89 kcal; 100 g chicken breast = 165 kcal; 1 slice bread = 79 kcal.
 
-QUESTION / CORRECTION RULE — if the user is questioning, correcting, or pushing back on a previous log (e.g. "how is that X calories?", "that seems wrong", "why did you log that?", "that's too high"), do NOT add any entries. Set needsClarification:false, entries:[], and address their concern directly in the reply with a brief explanation.
+RULE 5 — USER QUESTIONS OR CORRECTIONS. If the user is questioning or disputing a logged entry (e.g. "how is that X calories?", "that seems wrong", "that's too high", "why did you log that?"), return entries:[] and address their concern in "reply". Do not log anything.
 
-When logging (needsClarification:false): food kcal = calories consumed with realistic macro grams for the stated amount; activity kcal = calories BURNED (positive), macros 0, durationMin if stated/estimable. "reply" = 1-2 warm sentences referencing their day and a next step.
+For activities: estimate kcal BURNED (positive number), macros 0, durationMin if estimable.
+"reply" = 1–2 warm sentences acknowledging what was logged or answering the question.`;
 
-Context — goal "${ctx.goalTitle}": net ${ctx.target} kcal/day. Today so far: eaten ${ctx.eaten}, burned ${ctx.burned}, net ${ctx.net} kcal; protein ${ctx.protein}g of ${ctx.proteinTarget}g.
-Recent conversation (use it to resolve a quantity the user is now answering):
+// ─── User turn: context + message ─────────────────────────────────────────────
+
+function buildUserTurn(text: string, ctx: CoachContext): string {
+  return `Goal "${ctx.goalTitle}": ${ctx.target} kcal/day net. Today so far: eaten ${ctx.eaten} kcal, burned ${ctx.burned} kcal, net ${ctx.net} kcal, protein ${ctx.protein}g / ${ctx.proteinTarget}g.
+Recent conversation:
 ${ctx.history}
-Newest user message: "${text}"`;
+User: "${text}"`;
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function parseJson(raw: string): Partial<CoachResponse> {
   let s = raw.trim().replace(/```json/gi, '').replace(/```/g, '');
@@ -90,15 +90,19 @@ function parseJson(raw: string): Partial<CoachResponse> {
 }
 
 function normalize(p: Partial<CoachResponse>): CoachResponse {
-  const entries = Array.isArray(p.entries) ? p.entries.map((e) => ({
-    type: (e.type === 'activity' ? 'activity' : 'food') as import('@/lib/types').EntryType,
-    name: String(e.name || 'Entry'),
-    kcal: Math.max(0, Math.round(Number(e.kcal) || 0)),
-    protein: Math.round(Number(e.protein) || 0),
-    carbs: Math.round(Number(e.carbs) || 0),
-    fat: Math.round(Number(e.fat) || 0),
-    durationMin: e.durationMin == null ? null : Math.round(Number(e.durationMin)),
-  })) : [];
+  const entries = Array.isArray(p.entries)
+    ? p.entries
+        .filter(e => !ZERO_CAL_ENTRY.test(String(e.name || '')))  // strip water entries the model snuck in
+        .map(e => ({
+          type: (e.type === 'activity' ? 'activity' : 'food') as import('@/lib/types').EntryType,
+          name: String(e.name || 'Entry'),
+          kcal: Math.max(0, Math.round(Number(e.kcal) || 0)),
+          protein: Math.round(Number(e.protein) || 0),
+          carbs: Math.round(Number(e.carbs) || 0),
+          fat: Math.round(Number(e.fat) || 0),
+          durationMin: e.durationMin == null ? null : Math.round(Number(e.durationMin)),
+        }))
+    : [];
   return {
     needsClarification: !!p.needsClarification,
     question: String(p.question || ''),
