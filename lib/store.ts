@@ -129,8 +129,6 @@ interface State {
   heightCm: number;
   targetWeightKg: number;
 
-  stravaConnected: boolean;
-
   // selectors
   activeGoal: () => Goal;
   totals: () => { eaten: number; burned: number; net: number; protein: number };
@@ -155,8 +153,6 @@ interface State {
   removeEntry: (id: number) => void;
   pushMessage: (m: Message) => void;
 
-  connectStrava: () => void;
-  disconnectStrava: () => void;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -182,8 +178,6 @@ export const useStore = create<State>((set, get) => ({
   weightKg: 68,
   heightCm: 168,
   targetWeightKg: 63,
-
-  stravaConnected: false,
 
   activeGoal: () => {
     const s = get();
@@ -221,11 +215,10 @@ export const useStore = create<State>((set, get) => ({
       }
 
       const date = todayStr();
-      const [goalsRes, entriesRes, messagesRes, stravaRes] = await Promise.all([
+      const [goalsRes, entriesRes, messagesRes] = await Promise.all([
         db.from('goals').select('*').eq('user_id', user.id),
         db.from('entries').select('*').eq('user_id', user.id).eq('entry_date', date),
         db.from('messages').select('*').eq('user_id', user.id).eq('message_date', date).order('pk'),
-        db.from('strava_tokens').select('user_id').eq('user_id', user.id).maybeSingle(),
       ]);
 
       const profile: Profile = {
@@ -285,7 +278,6 @@ export const useStore = create<State>((set, get) => ({
         heightCm: profileData.height_cm,
         targetWeightKg: profileData.target_weight_kg,
         tracking: profileData.tracking as Tracking,
-        stravaConnected: !!stravaRes.data,
         user: { name: profileData.name, email: user.email ?? '' },
       });
     } catch (e) {
@@ -379,23 +371,4 @@ export const useStore = create<State>((set, get) => ({
       return { messages: [...s.messages, m] };
     }),
 
-  connectStrava: () =>
-    set((s) => {
-      if (s.stravaConnected) return {};
-      const id = s.nextId;
-      const sample: Entry = {
-        id, time: '18:20', type: 'activity', name: 'Evening ride',
-        kcal: 280, protein: 0, carbs: 0, fat: 0, durationMin: 45, source: 'strava' as Source,
-      };
-      const entries = [...s.entries, sample];
-      if (s.userId && s.initialized) void dbReplaceEntries(s.userId, entries);
-      return { stravaConnected: true, entries, nextId: id + 1 };
-    }),
-
-  disconnectStrava: () =>
-    set((s) => {
-      const entries = s.entries.filter((e) => e.source !== 'strava');
-      if (s.userId && s.initialized) void dbReplaceEntries(s.userId, entries);
-      return { stravaConnected: false, entries };
-    }),
 }));

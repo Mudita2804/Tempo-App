@@ -1,171 +1,262 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useStore } from '@/lib/store';
+import { createClient } from '@/lib/supabase/client';
 
-// Static historical data — the last bar is today's live net
-const HIST: Array<[string, number]> = [
-  ['Wed', 1720], ['Thu', 1540], ['Fri', 1880],
-  ['Sat', 1610], ['Sun', 1750], ['Mon', 1490],
-];
+type DayData = { eaten: number; burned: number; net: number };
+type HistoryMap = Record<string, DayData>; // key: 'YYYY-MM-DD'
 
 function fmt(n: number) { return Math.round(n).toLocaleString(); }
 
+const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const todayStr = () => new Date().toISOString().split('T')[0];
+
 export function Trends() {
+  const userId  = useStore(s => s.userId);
   const totals  = useStore(s => s.totals);
   const goals   = useStore(s => s.goals);
   const profile = useStore(s => s.profile);
 
-  const t      = totals();
-  const goal   = goals.find(g => g.type === profile.goalType) ?? goals[0];
-  const todayNet = t.net;
+  const goal = goals.find(g => g.type === profile.goalType) ?? goals[0];
 
-  const allNets  = HIST.map(([, n]) => n).concat([todayNet]);
-  const maxN     = Math.max(2200, ...allNets);
-  const goalPct  = Math.round(goal.target / maxN * 100);
+  const [history, setHistory] = useState<HistoryMap>({});
+  const [loading, setLoading] = useState(true);
+  const now = new Date();
+  const [view, setView] = useState({ year: now.getFullYear(), month: now.getMonth() });
 
-  const bars = ([...HIST, ['Tue', todayNet]] as Array<[string, number]>).map(([label, n]) => ({
-    label, net: fmt(n),
-    h:     Math.max(4, Math.round(n / maxN * 100)),
-    color: n <= goal.target ? '#3f9d5f' : '#d99a6c',
-  }));
+  useEffect(() => {
+    if (!userId) { setLoading(false); return; }
+    const db = createClient();
+    db.from('entries')
+      .select('entry_date, type, kcal')
+      .eq('user_id', userId)
+      .then(({ data }) => {
+        const map: HistoryMap = {};
+        for (const row of data ?? []) {
+          if (!map[row.entry_date]) map[row.entry_date] = { eaten: 0, burned: 0, net: 0 };
+          if (row.type === 'food') map[row.entry_date].eaten += row.kcal;
+          else                     map[row.entry_date].burned += row.kcal;
+        }
+        for (const key of Object.keys(map)) {
+          map[key].net = map[key].eaten - map[key].burned;
+        }
+        setHistory(map);
+        setLoading(false);
+      });
+  }, [userId]);
+
+  // Merge live store totals for today
+  const t = totals();
+  const today = todayStr();
+  const live: HistoryMap = {
+    ...history,
+    ...(t.eaten > 0 || t.burned > 0
+      ? { [today]: { eaten: t.eaten, burned: t.burned, net: t.net } }
+      : {}),
+  };
+
+  // Month grid
+  const { year, month: m } = view;
+  const firstDow    = new Date(year, m, 1).getDay();
+  const daysInMonth = new Date(year, m + 1, 0).getDate();
+  const isCurrentMonth = year === now.getFullYear() && m === now.getMonth();
+
+  // Stats for the viewed month
+  const monthEntries = Object.entries(live).filter(([k]) => {
+    const d = new Date(k + 'T00:00:00');
+    return d.getFullYear() === year && d.getMonth() === m && k <= today;
+  });
+  const daysLogged    = monthEntries.length;
+  const daysOnTarget  = monthEntries.filter(([, d]) => d.net <= goal.target).length;
+  const avgNet        = daysLogged > 0
+    ? Math.round(monthEntries.reduce((s, [, d]) => s + d.net, 0) / daysLogged)
+    : 0;
+
+  const isCurrentYear = year === now.getFullYear();
+
+  function prevMonth() {
+    setView(v => {
+      const d = new Date(v.year, v.month - 1);
+      return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  }
+  function nextMonth() {
+    if (isCurrentMonth) return;
+    setView(v => {
+      const d = new Date(v.year, v.month + 1);
+      return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  }
+  function prevYear() {
+    setView(v => ({ year: v.year - 1, month: v.month }));
+  }
+  function nextYear() {
+    if (isCurrentYear) return;
+    setView(v => {
+      const newYear = v.year + 1;
+      const clampedMonth = newYear === now.getFullYear()
+        ? Math.min(v.month, now.getMonth())
+        : v.month;
+      return { year: newYear, month: clampedMonth };
+    });
+  }
 
   return (
     <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
       <div style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.01em', marginBottom: 2 }}>
         Trends
       </div>
-      <div style={{ fontSize: 14, color: '#8a8478', marginBottom: 26 }}>Last 7 days</div>
+      <div style={{ fontSize: 14, color: '#8a8478', marginBottom: 26 }}>
+        {MONTHS[m]} {year}
+      </div>
 
       {/* ── Stat cards ─────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 14, marginBottom: 24 }}>
-        <StatCard label="AVG NET"        value="1,664" />
-        <StatCard label="DAYS ON TARGET" value="5" sub="/ 7" />
-        <StatCard label="STREAK"         value="12" sub=" days logged" valColor="#3f9d5f" />
-        <StatCard label="WEIGHT"         value="68.2" sub=" −0.4" subColor="#3f9d5f" />
+        <StatCard label="AVG NET"        value={daysLogged ? fmt(avgNet) : '—'} />
+        <StatCard label="DAYS ON TARGET" value={String(daysOnTarget)} sub={` / ${daysLogged}`} />
+        <StatCard label="DAYS LOGGED"    value={String(daysLogged)} valColor="#3f9d5f" />
+        <StatCard label="GOAL"           value={fmt(goal.target)} sub=" kcal" />
       </div>
 
-      {/* ── Bar chart ──────────────────────────────────────────────────────── */}
+      {/* ── Calendar ───────────────────────────────────────────────────────── */}
       <div style={{
         background: '#fff', border: '1px solid #ece6dc',
-        borderRadius: 16, padding: 24, marginBottom: 20,
+        borderRadius: 16, padding: 24,
       }}>
+        {/* Year nav */}
         <div style={{
-          display: 'flex', justifyContent: 'space-between',
-          alignItems: 'center', marginBottom: 20,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 10,
         }}>
-          <div style={{ fontWeight: 700, fontSize: 16 }}>Net energy vs goal</div>
-          <div style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#8a8478',
-          }}>goal {fmt(goal.target)}</div>
+          <NavBtn onClick={prevYear}>‹</NavBtn>
+          <div style={{ fontWeight: 600, fontSize: 13, color: '#8a8478', minWidth: 40, textAlign: 'center' }}>{year}</div>
+          <NavBtn onClick={nextYear} disabled={isCurrentYear}>›</NavBtn>
         </div>
 
-        {/* Bars */}
+        {/* Month nav */}
         <div style={{
-          display: 'flex', alignItems: 'flex-end', gap: 18, height: 200,
-          position: 'relative', borderBottom: '1px solid #ece6dc',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20,
         }}>
-          {/* Goal dashed line */}
-          <div style={{
-            position: 'absolute', left: 0, right: 0,
-            borderTop: '1px dashed #d9d1c4',
-            bottom: `${goalPct}%`,
-            pointerEvents: 'none',
-          }} />
+          <NavBtn onClick={prevMonth}>‹</NavBtn>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>{MONTHS[m]}</div>
+          <NavBtn onClick={nextMonth} disabled={isCurrentMonth}>›</NavBtn>
+        </div>
 
-          {bars.map(({ label, net, h, color }) => (
-            <div key={label} style={{
-              flex: 1, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'flex-end',
-              height: '100%', gap: 8,
-            }}>
-              <div style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#8a8478',
-              }}>{net}</div>
-              <div style={{
-                width: '100%', maxWidth: 44, borderRadius: '7px 7px 0 0',
-                background: color, height: `${h}%`,
-              }} />
+        {/* Day-of-week headers */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4,
+        }}>
+          {DAY_HEADERS.map(d => (
+            <div key={d} style={{
+              textAlign: 'center',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 11, color: '#aaa297', padding: '4px 0',
+            }}>{d}</div>
+          ))}
+        </div>
+
+        {/* Day cells */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+          {Array.from({ length: firstDow }).map((_, i) => <div key={`pad-${i}`} />)}
+
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const day     = i + 1;
+            const dateStr = `${year}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const data    = live[dateStr];
+            const isToday = dateStr === today;
+            const isFuture = dateStr > today;
+
+            const dotColor = data && !isFuture
+              ? (data.net <= goal.target ? '#3f9d5f' : '#d99a6c')
+              : null;
+
+            return (
+              <div key={day} style={{
+                borderRadius: 10,
+                padding: '8px 4px',
+                background: isToday ? '#e8f3ec' : '#f7f4ef',
+                border: isToday ? '1.5px solid #3f9d5f' : '1.5px solid transparent',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                minHeight: 60,
+              }}>
+                <div style={{
+                  fontSize: 13,
+                  fontWeight: isToday ? 700 : 400,
+                  color: isToday ? '#3f9d5f' : isFuture ? '#ccc' : '#211e1a',
+                }}>{day}</div>
+
+                {dotColor && (
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor }} />
+                )}
+
+                {data && !isFuture && (
+                  <div style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 9, color: '#8a8478', textAlign: 'center',
+                    lineHeight: 1.3,
+                  }}>{fmt(data.net)}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Legend */}
+        <div style={{ display: 'flex', gap: 20, marginTop: 16, justifyContent: 'flex-end' }}>
+          {[
+            { color: '#3f9d5f', label: 'On target' },
+            { color: '#d99a6c', label: 'Over target' },
+          ].map(({ color, label }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+              <span style={{ fontSize: 12, color: '#8a8478' }}>{label}</span>
             </div>
           ))}
         </div>
-
-        {/* Day labels */}
-        <div style={{ display: 'flex', gap: 18, marginTop: 10 }}>
-          {bars.map(({ label }) => (
-            <div key={label} style={{
-              flex: 1, textAlign: 'center',
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#aaa297',
-            }}>{label}</div>
-          ))}
-        </div>
       </div>
 
-      {/* ── Weight trend + Avg macros ───────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 20 }}>
-        {/* Weight trend */}
-        <div style={{
-          flex: 1, background: '#fff', border: '1px solid #ece6dc', borderRadius: 16, padding: 24,
-        }}>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 18 }}>Weight trend</div>
-          <svg width="100%" height="120" viewBox="0 0 360 120" preserveAspectRatio="none">
-            <polyline
-              points="0,28 60,34 120,30 180,46 240,52 300,60 360,70"
-              fill="none" stroke="#3f9d5f" strokeWidth="2.5"
-              strokeLinecap="round" strokeLinejoin="round"
-            />
-            <circle cx="360" cy="70" r="4" fill="#3f9d5f" />
-          </svg>
-          <div style={{
-            display: 'flex', justifyContent: 'space-between', marginTop: 6,
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: '#aaa297',
-          }}>
-            <span>4 wks ago</span>
-            <span>now</span>
-          </div>
+      {loading && (
+        <div style={{ fontSize: 13, color: '#aaa297', textAlign: 'center', marginTop: 20 }}>
+          Loading history…
         </div>
-
-        {/* Avg macros */}
-        <div style={{
-          flex: 1, background: '#fff', border: '1px solid #ece6dc', borderRadius: 16, padding: 24,
-        }}>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 18 }}>Avg macros / day</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {([
-              { label: 'Protein', val: '104g', pct: 87, color: '#3f9d5f' },
-              { label: 'Carbs',   val: '186g', pct: 93, color: '#c9b48a' },
-              { label: 'Fat',     val: '54g',  pct: 90, color: '#d99a6c' },
-            ] as const).map(({ label, val, pct, color }) => (
-              <div key={label}>
-                <div style={{
-                  display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6,
-                }}>
-                  <span style={{ fontWeight: 600 }}>{label}</span>
-                  <span style={{
-                    fontFamily: "'JetBrains Mono', monospace", color: '#8a8478',
-                  }}>{val}</span>
-                </div>
-                <div style={{ height: 8, borderRadius: 4, background: '#ece6dc' }}>
-                  <div style={{ width: `${pct}%`, height: '100%', borderRadius: 4, background: color }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
-// ─── Stat card atom ───────────────────────────────────────────────────────────
+// ─── Nav button ───────────────────────────────────────────────────────────────
+
+function NavBtn({ onClick, disabled, children }: {
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        background: 'none', border: '1px solid #ece6dc', borderRadius: 8,
+        width: 32, height: 32, cursor: disabled ? 'default' : 'pointer',
+        fontSize: 18, color: disabled ? '#ccc' : '#6b655c',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'color .12s',
+      }}
+    >{children}</button>
+  );
+}
+
+// ─── Stat card ────────────────────────────────────────────────────────────────
 
 function StatCard({
   label, value, sub, valColor = '#211e1a', subColor = '#8a8478',
 }: {
-  label: string;
-  value: string;
-  sub?: string;
-  valColor?: string;
-  subColor?: string;
+  label: string; value: string; sub?: string; valColor?: string; subColor?: string;
 }) {
   return (
     <div style={{
@@ -177,9 +268,7 @@ function StatCard({
       }}>{label}</div>
       <div style={{ fontSize: 24, fontWeight: 800, color: valColor }}>
         {value}
-        {sub && (
-          <span style={{ fontSize: 14, fontWeight: 500, color: subColor }}>{sub}</span>
-        )}
+        {sub && <span style={{ fontSize: 14, fontWeight: 500, color: subColor }}>{sub}</span>}
       </div>
     </div>
   );

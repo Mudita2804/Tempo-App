@@ -28,9 +28,6 @@ export const color = {
   overText: '#B3502F',
   overBg: '#FBEAE3',
 
-  strava: '#FC4C02',
-  stravaBadgeBg: '#FEE9E0',
-  stravaBadgeText: '#D9430A',
 } as const;
 
 export const font = {

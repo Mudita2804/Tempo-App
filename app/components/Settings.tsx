@@ -19,10 +19,6 @@ export function Settings() {
   const profile          = useStore(s => s.profile);
   const editGoal         = useStore(s => s.editGoal);
   const setProfile       = useStore(s => s.setProfile);
-  const stravaConnected  = useStore(s => s.stravaConnected);
-  const connectStrava    = useStore(s => s.connectStrava);
-  const disconnectStrava = useStore(s => s.disconnectStrava);
-
   const goal = goals.find(g => g.type === profile.goalType) ?? goals[0];
   const fmt  = (n: number) => Math.round(n).toLocaleString();
 
@@ -128,38 +124,6 @@ export function Settings() {
           <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Connected sources</div>
           <div style={{ fontSize: 13.5, color: '#8a8478', marginBottom: 18 }}>
             Sync workouts for accurate calorie burn instead of estimates.
-          </div>
-
-          {/* Strava */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '14px 16px', borderRadius: 12,
-            border: `1px solid ${stravaConnected ? '#b6dcc3' : '#efe9e0'}`,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{
-                width: 42, height: 42, borderRadius: 10, background: '#fc4c02',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontWeight: 800, fontSize: 14, flexShrink: 0,
-              }}>St</div>
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>Strava</div>
-                <div style={{ fontSize: 12.5, color: '#8a8478' }}>
-                  {stravaConnected ? 'Auto-syncing workouts' : 'Heart-rate based calorie burn'}
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={stravaConnected ? disconnectStrava : connectStrava}
-              onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
-              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
-              style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
-                padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                background: stravaConnected ? '#fbeae3' : '#3f9d5f',
-                color:      stravaConnected ? '#b3502f' : '#fff',
-              }}
-            >{stravaConnected ? 'Disconnect' : 'Connect'}</button>
           </div>
 
           {/* Apple Health — coming soon */}

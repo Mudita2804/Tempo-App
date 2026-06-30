@@ -1,7 +1,7 @@
 // Core domain types for Tempo.
 
 export type EntryType = 'food' | 'activity';
-export type Source = 'voice' | 'text' | 'manual' | 'strava';
+export type Source = 'voice' | 'text' | 'manual';
 
 export interface Entry {
   id: number;

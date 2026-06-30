@@ -1,7 +1,6 @@
 import type { Source } from '@/lib/types';
 
-export function badgeStyle(source: Source): React.CSSProperties {
-  const isStrava = source === 'strava';
+export function badgeStyle(_source: Source): React.CSSProperties {
   return {
     fontFamily: "'JetBrains Mono', monospace",
     fontSize: 10,
@@ -9,13 +8,12 @@ export function badgeStyle(source: Source): React.CSSProperties {
     padding: '2px 7px',
     borderRadius: 6,
     flexShrink: 0,
-    background: isStrava ? '#fee9e0' : '#f1ece3',
-    color: isStrava ? '#d9430a' : '#a59a89',
+    background: '#f1ece3',
+    color: '#a59a89',
   };
 }
 
 export function sourceLabel(source: Source): string {
-  if (source === 'strava') return 'Strava';
   if (source === 'voice') return 'voice';
   if (source === 'text') return 'typed';
   return 'manual';

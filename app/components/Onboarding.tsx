@@ -448,8 +448,6 @@ function StepGoals() {
   const setProfile      = useStore(s => s.setProfile);
   const setScreen       = useStore(s => s.setScreen);
   const obBack          = useStore(s => s.obBack);
-  const stravaConnected = useStore(s => s.stravaConnected);
-  const connectStrava   = useStore(s => s.connectStrava);
 
   const goal = goals.find(g => g.type === profile.goalType) ?? goals[0];
 
@@ -547,51 +545,6 @@ function StepGoals() {
           </div>
         </div>
       )}
-
-      {/* Strava connect */}
-      <div style={{
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
-        letterSpacing: '0.1em', textTransform: 'uppercase',
-        color: '#8a8478', marginBottom: 12,
-      }}>
-        Connect a source{' '}
-        <span style={{ textTransform: 'none', letterSpacing: 0 }}>
-          (optional — for accurate workout burn)
-        </span>
-      </div>
-
-      <div
-        onClick={!stravaConnected ? connectStrava : undefined}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '14px 16px', borderRadius: 13, cursor: stravaConnected ? 'default' : 'pointer',
-          border: stravaConnected ? '2px solid #3f9d5f' : '1px solid #ece6dc',
-          background: stravaConnected ? '#f1f8f3' : '#fff',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 38, height: 38, borderRadius: 9, background: '#fc4c02',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 800, fontSize: 13, flexShrink: 0,
-          }}>St</div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#211e1a' }}>Strava</div>
-            <div style={{ fontSize: 12.5, color: '#8a8478' }}>
-              {stravaConnected ? 'Auto-syncing workouts' : 'Heart-rate based calorie burn'}
-            </div>
-          </div>
-        </div>
-        <div style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
-          padding: '7px 13px', borderRadius: 8,
-          background: stravaConnected ? '#e8f3ec' : '#f7f4ef',
-          color: stravaConnected ? '#256b3f' : '#6b655c',
-          border: `1px solid ${stravaConnected ? '#b6dcc3' : '#ece6dc'}`,
-        }}>
-          {stravaConnected ? 'Connected ✓' : 'Connect'}
-        </div>
-      </div>
 
       {/* Navigation */}
       <div style={{ display: 'flex', gap: 12, marginTop: 28 }}>

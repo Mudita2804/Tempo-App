@@ -13,9 +13,7 @@ function fmt(n: number) { return Math.round(n).toLocaleString(); }
 
 export function Foods({ onSelectEntry }: Props) {
   const entries = useStore(s => s.entries);
-
-  const food     = entries.filter(e => e.type === 'food');
-  const activity = entries.filter(e => e.type === 'activity');
+  const food = entries.filter(e => e.type === 'food');
 
   return (
     <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
@@ -26,37 +24,17 @@ export function Foods({ onSelectEntry }: Props) {
         Tap any item for the full breakdown
       </div>
 
-      {/* ── Food grid ──────────────────────────────────────────────────────── */}
       {food.length === 0 ? (
-        <div style={{ fontSize: 14, color: '#aaa297', marginBottom: 30 }}>
+        <div style={{ fontSize: 14, color: '#aaa297' }}>
           No food logged yet — tell the coach what you ate.
         </div>
       ) : (
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 16, marginBottom: 30,
+          gap: 16,
         }}>
           {food.map(e => (
             <FoodCard key={e.id} entry={e} onClick={() => onSelectEntry(e.id)} />
-          ))}
-        </div>
-      )}
-
-      {/* ── Activity section ───────────────────────────────────────────────── */}
-      <div style={{
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
-        letterSpacing: '0.1em', textTransform: 'uppercase',
-        color: '#8a8478', marginBottom: 12,
-      }}>Activity</div>
-
-      {activity.length === 0 ? (
-        <div style={{ fontSize: 14, color: '#aaa297' }}>
-          No activity logged yet — tell the coach what you did.
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 560 }}>
-          {activity.map(e => (
-            <ActivityRow key={e.id} entry={e} onClick={() => onSelectEntry(e.id)} />
           ))}
         </div>
       )}
@@ -112,46 +90,3 @@ function FoodCard({ entry, onClick }: { entry: Entry; onClick: () => void }) {
   );
 }
 
-// ─── Activity row ──────────────────────────────────────────────────────────────
-
-function ActivityRow({ entry, onClick }: { entry: Entry; onClick: () => void }) {
-  const [hov, setHov] = useState(false);
-  const sub = `${entry.time}${entry.durationMin ? ` · ${entry.durationMin} min` : ''}`;
-
-  return (
-    <div
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
-        background: '#fff', borderRadius: 14, padding: '14px 18px',
-        border: hov ? '1px solid #cfc6b8' : '1px solid #ece6dc',
-        transition: 'border-color .12s',
-      }}
-    >
-      {/* Activity icon */}
-      <div style={{
-        width: 38, height: 38, borderRadius: 10, background: '#e8f3ec',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-      }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-          stroke="#3f9d5f" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M13 5l-2 5h4l-2 5" />
-          <circle cx="12" cy="12" r="9" />
-        </svg>
-      </div>
-
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 15, fontWeight: 600 }}>{entry.name}</div>
-        <div style={{ fontSize: 12.5, color: '#8a8478' }}>{sub}</div>
-      </div>
-
-      <span style={badgeStyle(entry.source)}>{sourceLabel(entry.source)}</span>
-      <span style={{
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 14, color: '#3f9d5f', fontWeight: 500,
-        flexShrink: 0,
-      }}>−{fmt(entry.kcal)}</span>
-    </div>
-  );
-}

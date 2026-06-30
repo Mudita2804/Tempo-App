@@ -9,7 +9,6 @@ interface Props {
 }
 
 const SOURCE_NOTE: Record<string, string> = {
-  strava: 'Auto-synced from Strava — calorie burn from heart-rate data.',
   voice:  'Logged by voice — calories estimated by Tempo.',
   text:   'Typed entry — calories estimated by Tempo.',
   manual: 'Added manually.',
