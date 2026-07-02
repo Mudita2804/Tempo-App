@@ -47,9 +47,9 @@ function localFallback(text: string): CoachResponse {
     };
   }
   return {
-    needsClarification: false,
-    entries: [{ type: 'food', name: text.slice(0, 40), kcal: 400, protein: 18, carbs: 45, fat: 14, durationMin: null }],
-    reply: 'Logged that. Keep them coming!',
-    question: '',
+    needsClarification: true,
+    entries: [],
+    question: "Something went wrong on my end. Could you try again?",
+    reply: '',
   };
 }
