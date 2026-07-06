@@ -106,11 +106,11 @@ RULE 1 — ONE ENTRY PER ITEM. Each distinct food or activity must be its own en
 
 RULE 2 — QUANTITY REQUIRED FOR FOOD. If any food item lacks an explicit quantity (count, weight, or volume), do not log it. Return needsClarification:true, entries:[], and ask for the missing quantity in "question".
 
-RULE 3 — ACCURATE USDA CALORIES. Use real values: 1 Medjool date = 66 kcal; 1 small dried date = 20 kcal; 1 large egg = 72 kcal; 1 cup cooked white rice = 206 kcal; 1 medium banana = 89 kcal; 100 g chicken breast = 165 kcal; 1 slice bread = 79 kcal.
+RULE 3 — ACCURATE USDA CALORIES. Use real values: 1 Medjool date = 66 kcal; 1 small dried date = 20 kcal; 1 large egg = 72 kcal; 1 cup cooked white rice = 206 kcal; 1 medium banana = 89 kcal; 1 yelakki/elaichi/small Indian banana = 60 kcal; 100 g chicken breast = 165 kcal; 1 slice bread = 79 kcal.
 
 RULE 4 — USER QUESTIONS. If the user is questioning or disputing a logged entry (e.g. "how is that X calories?", "that seems wrong", "that's too high"), return entries:[] and address their concern in "reply". Do not log anything.
 
-RULE 5 — CORRECTIONS. If the user says they meant a different food or quantity (e.g. "I meant yelakki bananas", "actually it was 3 not 2", "correct that to X"), return the corrected entries with correction:true. The app will remove the previous entries and replace them with yours. All other cases use correction:false.
+RULE 5 — CORRECTIONS. If the user is clarifying or correcting a previously logged food (e.g. "I meant yelakki bananas", "actually it was 3 not 2", "those were X not Y", or naming the specific variety after a generic was logged), return the corrected entries with correction:true. The app will remove the previous entries and replace them with yours. IMPORTANT: If the user corrects the type/name without re-stating the quantity, infer the quantity from the most recent logged item in the conversation history — do NOT ask for the quantity again (this overrides RULE 2 for corrections). All other cases use correction:false.
 
 For activities: estimate kcal BURNED (positive), macros 0, durationMin if estimable.
 "reply" = 1–2 warm sentences acknowledging what was logged or answering the question.`;
