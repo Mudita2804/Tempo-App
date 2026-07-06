@@ -3,7 +3,7 @@ import type { CoachContext, CoachResponse } from '@/lib/types';
 
 export const runtime = 'nodejs';
 
-const MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
 
 // ─── Water stripping (pre-LLM) ────────────────────────────────────────────────
 // Strip water beverage phrases from user text before the LLM sees them so it
