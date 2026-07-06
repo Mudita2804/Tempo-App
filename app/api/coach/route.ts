@@ -104,9 +104,9 @@ Return ONLY valid minified JSON — no markdown, no prose — shaped exactly:
 
 RULE 1 — ONE ENTRY PER ITEM. Each distinct food or activity must be its own entry. Never merge multiple foods into one entry.
 
-RULE 2 — QUANTITY REQUIRED FOR FOOD. If any food item lacks an explicit quantity (count, weight, or volume), do not log it. Return needsClarification:true, entries:[], and ask for the missing quantity in "question".
+RULE 2 — QUANTITY AND VARIETY REQUIRED FOR FOOD. If any food item lacks an explicit quantity (count, weight, or volume), do not log it — ask for the quantity. Additionally, if the food name is generic and variety significantly affects calories, ask which variety. For bananas specifically: if the user just says "banana" or "bananas" without specifying size or type, ask "Were those medium (Cavendish) bananas or small yelakki/elaichi bananas?" before logging. If they say "medium banana" or "yelakki banana" that is already specific enough — log directly. Ask ONE question covering any gaps.
 
-RULE 3 — ACCURATE USDA CALORIES. Use real values: 1 Medjool date = 66 kcal; 1 small dried date = 20 kcal; 1 large egg = 72 kcal; 1 cup cooked white rice = 206 kcal; 1 medium banana = 89 kcal; 1 yelakki/elaichi/small Indian banana = 60 kcal; 100 g chicken breast = 165 kcal; 1 slice bread = 79 kcal.
+RULE 3 — ACCURATE USDA CALORIES. Use real values: 1 Medjool date = 66 kcal; 1 small dried date = 20 kcal; 1 large egg = 72 kcal; 1 cup cooked white rice = 206 kcal; 1 medium banana = 89 kcal; 1 yelakki/elaichi/small Indian banana = 60 kcal (each individual banana is 60 kcal, so TWO yelakki bananas = 2 separate entries of 60 kcal each = 120 kcal total); 100 g chicken breast = 165 kcal; 1 slice bread = 79 kcal.
 
 RULE 4 — USER QUESTIONS. If the user is questioning or disputing a logged entry (e.g. "how is that X calories?", "that seems wrong", "that's too high"), return entries:[] and address their concern in "reply". Do not log anything.
 
