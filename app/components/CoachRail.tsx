@@ -13,7 +13,11 @@ export function CoachRail() {
 
   const messages    = useStore(s => s.messages);
   const addEntries  = useStore(s => s.addEntries);
+  const removeEntry = useStore(s => s.removeEntry);
   const pushMessage = useStore(s => s.pushMessage);
+
+  // Track IDs of the last coach-logged entries so corrections can replace them
+  const lastAddedIdsRef = useRef<number[]>([]);
 
   const scrollRef      = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -69,7 +73,18 @@ export function CoachRail() {
         pushMessage({ role: 'coach', text: data.question || 'Roughly how much did you have?' });
       } else {
         if (data.entries.length > 0) {
+          // On correction, remove whatever was logged last before adding the replacement
+          if (data.correction && lastAddedIdsRef.current.length > 0) {
+            lastAddedIdsRef.current.forEach(id => removeEntry(id));
+          }
+          const entriesBefore = useStore.getState().entries;
           addEntries(data.entries.map(e => ({ ...e, source })));
+          const entriesAfter = useStore.getState().entries;
+          lastAddedIdsRef.current = entriesAfter
+            .slice(entriesBefore.length)
+            .map(e => e.id);
+        } else {
+          // No entries logged — don't touch lastAddedIds so a follow-up correction still works
         }
         if (data.reply) pushMessage({ role: 'coach', text: data.reply });
       }

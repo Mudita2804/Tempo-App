@@ -68,6 +68,7 @@ export interface CoachResponse {
   question: string;
   entries: CoachEntry[];
   reply: string;
+  correction: boolean;  // true when user is correcting a previously logged item
 }
 
 export interface CoachContext {

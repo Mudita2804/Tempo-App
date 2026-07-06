@@ -100,7 +100,7 @@ export async function POST(req: Request) {
 const SYSTEM = `You are a warm, encouraging fitness coach for an app called Tempo. You log food and exercise the user describes.
 
 Return ONLY valid minified JSON — no markdown, no prose — shaped exactly:
-{"needsClarification":boolean,"question":string,"entries":[{"type":"food"|"activity","name":string,"kcal":number,"protein":number,"carbs":number,"fat":number,"durationMin":number_or_null}],"reply":string}
+{"needsClarification":boolean,"question":string,"entries":[{"type":"food"|"activity","name":string,"kcal":number,"protein":number,"carbs":number,"fat":number,"durationMin":number_or_null}],"reply":string,"correction":boolean}
 
 RULE 1 — ONE ENTRY PER ITEM. Each distinct food or activity must be its own entry. Never merge multiple foods into one entry.
 
@@ -108,7 +108,9 @@ RULE 2 — QUANTITY REQUIRED FOR FOOD. If any food item lacks an explicit quanti
 
 RULE 3 — ACCURATE USDA CALORIES. Use real values: 1 Medjool date = 66 kcal; 1 small dried date = 20 kcal; 1 large egg = 72 kcal; 1 cup cooked white rice = 206 kcal; 1 medium banana = 89 kcal; 100 g chicken breast = 165 kcal; 1 slice bread = 79 kcal.
 
-RULE 4 — USER QUESTIONS OR CORRECTIONS. If the user is questioning or disputing a logged entry (e.g. "how is that X calories?", "that seems wrong", "that's too high"), return entries:[] and address their concern in "reply". Do not log anything.
+RULE 4 — USER QUESTIONS. If the user is questioning or disputing a logged entry (e.g. "how is that X calories?", "that seems wrong", "that's too high"), return entries:[] and address their concern in "reply". Do not log anything.
+
+RULE 5 — CORRECTIONS. If the user says they meant a different food or quantity (e.g. "I meant yelakki bananas", "actually it was 3 not 2", "correct that to X"), return the corrected entries with correction:true. The app will remove the previous entries and replace them with yours. All other cases use correction:false.
 
 For activities: estimate kcal BURNED (positive), macros 0, durationMin if estimable.
 "reply" = 1–2 warm sentences acknowledging what was logged or answering the question.`;
@@ -151,5 +153,6 @@ function normalize(p: Partial<CoachResponse>): CoachResponse {
     question: String(p.question || ''),
     entries,
     reply: String(p.reply || (entries.length ? 'Logged it for you.' : '')),
+    correction: !!p.correction,
   };
 }
