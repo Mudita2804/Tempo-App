@@ -36,6 +36,9 @@ function stripWater(text: string): string {
   s = s.replace(/\x00CW\x00/g, 'coconut water');
 
   s = s.replace(/\s{2,}/g, ' ').trim();
+  // Remove dangling connectors left after stripping: "two bananas with" → "two bananas"
+  s = s.replace(/\s+(?:with|and|plus|along with|alongside),?\s*$/i, '').trim();
+  s = s.replace(/^(?:with|and|plus)\s+/i, '').trim();
   return s || text;
 }
 
