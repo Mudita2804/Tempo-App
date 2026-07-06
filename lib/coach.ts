@@ -17,7 +17,7 @@ export async function callCoach(text: string, ctx: CoachContext): Promise<CoachR
     if (!res.ok) throw new Error(`coach ${res.status}`);
     const data = (await res.json()) as CoachResponse;
     if (!data || !Array.isArray(data.entries)) throw new Error('bad shape');
-    return data;
+    return { ...data, correction: !!data.correction };
   } catch {
     return localFallback(text);
   }
@@ -36,6 +36,7 @@ function localFallback(text: string): CoachResponse {
       entries: [{ type: 'activity', name: text.slice(0, 40), kcal: Math.round(mins * 7), protein: 0, carbs: 0, fat: 0, durationMin: mins }],
       reply: `Logged your activity — about ${Math.round(mins * 7)} kcal burned. Nice work keeping moving.`,
       question: '',
+      correction: false,
     };
   }
   if (!QTY_RE.test(low)) {
@@ -44,6 +45,7 @@ function localFallback(text: string): CoachResponse {
       entries: [],
       question: 'Roughly how much did you have? A quick amount — how many, or cups/grams — keeps your calories accurate.',
       reply: '',
+      correction: false,
     };
   }
   return {
@@ -51,5 +53,6 @@ function localFallback(text: string): CoachResponse {
     entries: [],
     question: "Something went wrong on my end. Could you try again?",
     reply: '',
+    correction: false,
   };
 }
