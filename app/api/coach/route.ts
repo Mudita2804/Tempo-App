@@ -3,7 +3,7 @@ import type { CoachContext, CoachResponse } from '@/lib/types';
 
 export const runtime = 'nodejs';
 
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
 
 // ─── Water stripping (pre-LLM) ────────────────────────────────────────────────
 // Strip water beverage phrases from user text before the LLM sees them so it
@@ -63,17 +63,22 @@ export async function POST(req: Request) {
   const cleanedText = stripWater(text);
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
+  const requestBody = JSON.stringify({
+    systemInstruction: { parts: [{ text: SYSTEM }] },
+    contents: [{ role: 'user', parts: [{ text: buildUserTurn(cleanedText, ctx) }] }],
+    generationConfig: { temperature: 0.2, responseMimeType: 'application/json' },
+  });
+
+  // Retry once on 503 (transient model overload) after a short delay
+  async function fetchGemini(): Promise<Response> {
+    const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: requestBody });
+    if (r.ok || r.status !== 503) return r;
+    await new Promise(res => setTimeout(res, 500));
+    return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: requestBody });
+  }
 
   try {
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM }] },
-        contents: [{ role: 'user', parts: [{ text: buildUserTurn(cleanedText, ctx) }] }],
-        generationConfig: { temperature: 0.2, responseMimeType: 'application/json' },
-      }),
-    });
+    const r = await fetchGemini();
     if (!r.ok) {
       const detail = await r.text();
       return NextResponse.json({ error: 'llm error', detail }, { status: 502 });
