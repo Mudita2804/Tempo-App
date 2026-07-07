@@ -186,10 +186,10 @@ function OBHeader({ obStep }: { obStep: string }) {
 // ─── Step 1: Track ────────────────────────────────────────────────────────────
 
 const TRACK_DEFS = [
-  { key: 'weightLoss' as const, label: 'Weight loss',    desc: 'Reach a target weight' },
-  { key: 'calories'   as const, label: 'Count calories', desc: 'Track energy in vs out' },
-  { key: 'water'      as const, label: 'Water intake',   desc: 'Hit a daily hydration goal' },
-  { key: 'steps'      as const, label: 'Step count',     desc: 'Move more each day' },
+  { key: 'weightLoss' as const, label: 'Weight loss',    desc: 'Reach a target weight',       comingSoon: false },
+  { key: 'calories'   as const, label: 'Count calories', desc: 'Track energy in vs out',       comingSoon: false },
+  { key: 'water'      as const, label: 'Water intake',   desc: 'Hit a daily hydration goal',   comingSoon: true  },
+  { key: 'steps'      as const, label: 'Step count',     desc: 'Move more each day',           comingSoon: true  },
 ];
 
 function StepTrack() {
@@ -210,21 +210,32 @@ function StepTrack() {
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginBottom: 28 }}>
-        {TRACK_DEFS.map(({ key, label, desc }) => {
-          const on = tracking[key];
+        {TRACK_DEFS.map(({ key, label, desc, comingSoon }) => {
+          const on = !comingSoon && tracking[key];
           return (
             <div
               key={key}
-              onClick={() => toggleTrack(key)}
+              onClick={() => { if (!comingSoon) toggleTrack(key); }}
               style={{
-                display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 14,
+                cursor: comingSoon ? 'default' : 'pointer',
                 padding: '16px 18px', borderRadius: 14,
                 border: on ? '2px solid #3f9d5f' : '2px solid #ece6dc',
-                background: on ? '#f1f8f3' : '#fff',
+                background: on ? '#f1f8f3' : comingSoon ? '#fafaf8' : '#fff',
+                opacity: comingSoon ? 0.6 : 1,
               }}
             >
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#211e1a' }}>{label}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: '#211e1a' }}>{label}</span>
+                  {comingSoon && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, letterSpacing: '0.06em',
+                      color: '#8a8478', background: '#ece6dc',
+                      padding: '2px 7px', borderRadius: 20, textTransform: 'uppercase',
+                    }}>Coming soon</span>
+                  )}
+                </div>
                 <div style={{ fontSize: 13, color: '#8a8478', marginTop: 2 }}>{desc}</div>
               </div>
               <div style={{
