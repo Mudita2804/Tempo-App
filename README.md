@@ -1,6 +1,6 @@
 # Tempo — Next.js starter scaffold
 
-A minimal, runnable **Next.js (App Router) + TypeScript** skeleton wired for the Tempo app. It gives you the plumbing — types, a Zustand store, the goal-math, and the LLM + Strava API routes — so you (and Claude Code) can focus on building the UI from the design reference.
+A minimal, runnable **Next.js (App Router) + TypeScript** skeleton wired for the Tempo app. It gives you the plumbing — types, a Zustand store, the goal-math, and the LLM API route — so you (and Claude Code) can focus on building the UI from the design reference.
 
 > The screen-by-screen design spec lives in the parent folder's `../README.md`, with the pixel-accurate source in `../Tempo.dc.html`. **This scaffold is the wiring; that README is the look.**
 
@@ -10,18 +10,19 @@ starter/
 ├─ app/
 │  ├─ layout.tsx              # root layout, fonts, globals
 │  ├─ globals.css             # design tokens (CSS vars) + resets
-│  ├─ page.tsx                # entry: routes onboarding ↔ app shell (stub)
+│  ├─ page.tsx                # entry: routes onboarding ↔ app shell
+│  ├─ components/
+│  │  └─ CoachRail.tsx        # coach chat UI, voice input, correction mechanism
 │  └─ api/
-│     ├─ coach/route.ts       # POST → parses food/activity via Gemini, returns the JSON contract
-│     └─ strava/
-│        ├─ connect/route.ts  # GET → redirects to Strava OAuth
-│        └─ callback/route.ts # GET → exchanges code for tokens (stub)
+│     ├─ auth/                # Supabase auth callback
+│     └─ coach/route.ts       # POST → stripWater → Gemini → structured CoachResponse
 ├─ lib/
-│  ├─ types.ts                # Entry, Profile, Tracking, Goal, CoachResponse…
+│  ├─ types.ts                # Entry, Profile, Tracking, Goal, CoachResponse, CoachContext…
 │  ├─ tokens.ts               # color/spacing constants (mirror of globals.css)
 │  ├─ compute.ts              # computeGoals() — Mifflin-St Jeor → TDEE → targets
-│  ├─ store.ts                # Zustand store: profile, entries, messages, wizard state
-│  └─ coach.ts                # client helper: callCoach(text, ctx) → CoachResponse
+│  ├─ store.ts                # Zustand store: profile, entries, messages, wizard state + Supabase sync
+│  └─ coach.ts                # client helper: callCoach(text, ctx) → CoachResponse + localFallback
+├─ COACH.md                   # AI coach architecture, rules, model history, changelog
 ├─ .env.example
 ├─ package.json
 ├─ tsconfig.json
@@ -30,7 +31,7 @@ starter/
 
 ## Setup
 ```bash
-cp .env.example .env.local      # then fill in GEMINI_API_KEY (+ Strava keys when ready)
+cp .env.example .env.local      # fill in GEMINI_API_KEY and Supabase keys
 npm install
 npm run dev                     # http://localhost:3000
 ```
@@ -43,8 +44,12 @@ The store, math, and APIs are ready. Implement the screens from `../README.md`:
 
 Lift exact hex, type scale, and spacing from `../Tempo.dc.html` (or the CSS vars in `globals.css`).
 
-## What's stubbed (make real)
-- **Auth & persistence** — the login step just seeds `profile.name`. Add real auth (NextAuth/Clerk/Supabase) and persist `profile`, `entries`, `messages` to a DB (Postgres/Supabase recommended).
-- **/api/coach** — works as-is with a free **Gemini** key (`GEMINI_API_KEY`, get one at https://aistudio.google.com/apikey). Tune the model via `GEMINI_MODEL` (default `gemini-1.5-flash`). With no key, the client falls back to a local estimator that still asks for quantity.
-- **/api/strava/** — OAuth scaffold; the callback's token exchange + activity sync + **dedupe** (voice vs synced workout) are TODOs flagged in code.
-- **Voice** — Web Speech API in the browser (see `../README.md` → Voice input). Needs HTTPS + a top-level origin.
+## What's live
+- **Auth & persistence** — Supabase auth (Google OAuth). Profile, goals, entries, and messages all sync to Supabase on every write.
+- **/api/coach** — production-ready. Uses Google Gemini (`gemini-flash-lite-latest` on free tier). Handles food/activity logging, quantity clarification, corrections, water stripping. See `COACH.md` for full architecture.
+- **Voice** — Web Speech API in `CoachRail.tsx`. Works on HTTPS + Chrome/Edge. Falls back gracefully with an error message on unsupported browsers.
+
+## What's still stubbed
+- **Trends / Foods / Settings** — UI screens not yet built. Store and types are ready.
+- **Food detail slide-over** — not yet implemented.
+- **Step / water tracking UI** — tracked in store, no UI yet.

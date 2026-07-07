@@ -73,9 +73,25 @@ export function CoachRail() {
         pushMessage({ role: 'coach', text: data.question || 'Roughly how much did you have?' });
       } else {
         if (data.entries.length > 0) {
-          // On correction, remove whatever was logged last before adding the replacement
-          if (data.correction && lastAddedIdsRef.current.length > 0) {
-            lastAddedIdsRef.current.forEach(id => removeEntry(id));
+          if (data.correction) {
+            // Remove the entry being replaced, identified by name so it works
+            // even when other items were logged in between.
+            const target = (data.correctionTarget || '').toLowerCase().trim();
+            if (target) {
+              const current = useStore.getState().entries;
+              // Prefer exact name match; fall back to substring match
+              const exact = current.filter(e => e.name.toLowerCase() === target);
+              const toRemove = exact.length > 0
+                ? exact
+                : current.filter(e =>
+                    e.name.toLowerCase().includes(target) ||
+                    target.includes(e.name.toLowerCase())
+                  );
+              toRemove.forEach(e => removeEntry(e.id));
+            } else if (lastAddedIdsRef.current.length > 0) {
+              // Fallback: remove whatever was most recently logged
+              lastAddedIdsRef.current.forEach(id => removeEntry(id));
+            }
           }
           const entriesBefore = useStore.getState().entries;
           addEntries(data.entries.map(e => ({ ...e, source })));

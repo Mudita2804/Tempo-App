@@ -37,6 +37,7 @@ function localFallback(text: string): CoachResponse {
       reply: `Logged your activity — about ${Math.round(mins * 7)} kcal burned. Nice work keeping moving.`,
       question: '',
       correction: false,
+      correctionTarget: '',
     };
   }
   if (!QTY_RE.test(low)) {
@@ -46,6 +47,7 @@ function localFallback(text: string): CoachResponse {
       question: 'Roughly how much did you have? A quick amount — how many, or cups/grams — keeps your calories accurate.',
       reply: '',
       correction: false,
+      correctionTarget: '',
     };
   }
   return {
@@ -54,5 +56,6 @@ function localFallback(text: string): CoachResponse {
     question: "Something went wrong on my end. Could you try again?",
     reply: '',
     correction: false,
+    correctionTarget: '',
   };
 }
