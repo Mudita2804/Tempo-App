@@ -33,7 +33,7 @@ async function dbSaveProfile(userId: string, s: Pick<State,
   'profile' | 'sex' | 'activity' | 'pace' | 'age' | 'weightKg' | 'heightCm' | 'targetWeightKg' | 'tracking'
 >) {
   const db = createClient();
-  await db.from('profiles').upsert({
+  const { error } = await db.from('profiles').upsert({
     id: userId,
     name: s.profile.name,
     goal_type: s.profile.goalType,
@@ -49,11 +49,12 @@ async function dbSaveProfile(userId: string, s: Pick<State,
     tracking: s.tracking,
     updated_at: new Date().toISOString(),
   });
+  if (error) console.error('[tempo] dbSaveProfile failed:', error.message);
 }
 
 async function dbSaveGoals(userId: string, goals: Goal[]) {
   const db = createClient();
-  await db.from('goals').upsert(
+  const { error } = await db.from('goals').upsert(
     goals.map(g => ({
       user_id: userId,
       type: g.type,
@@ -66,14 +67,16 @@ async function dbSaveGoals(userId: string, goals: Goal[]) {
     })),
     { onConflict: 'user_id,type' }
   );
+  if (error) console.error('[tempo] dbSaveGoals failed:', error.message);
 }
 
 async function dbReplaceEntries(userId: string, entries: Entry[]) {
   const db = createClient();
   const date = todayStr();
-  await db.from('entries').delete().eq('user_id', userId).eq('entry_date', date);
+  const { error: delError } = await db.from('entries').delete().eq('user_id', userId).eq('entry_date', date);
+  if (delError) { console.error('[tempo] dbReplaceEntries delete failed:', delError.message); return; }
   if (entries.length > 0) {
-    await db.from('entries').insert(
+    const { error: insError } = await db.from('entries').insert(
       entries.map(e => ({
         user_id: userId,
         entry_date: date,
@@ -89,12 +92,13 @@ async function dbReplaceEntries(userId: string, entries: Entry[]) {
         source: e.source,
       }))
     );
+    if (insError) console.error('[tempo] dbReplaceEntries insert failed:', insError.message);
   }
 }
 
 async function dbAppendMessages(userId: string, msgs: Message[]) {
   const db = createClient();
-  await db.from('messages').insert(
+  const { error } = await db.from('messages').insert(
     msgs.map(m => ({
       user_id: userId,
       message_date: todayStr(),
@@ -102,6 +106,7 @@ async function dbAppendMessages(userId: string, msgs: Message[]) {
       text: m.text,
     }))
   );
+  if (error) console.error('[tempo] dbAppendMessages failed:', error.message);
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
