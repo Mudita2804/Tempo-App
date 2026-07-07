@@ -79,19 +79,18 @@ export function CoachRail() {
       } else {
         if (data.entries.length > 0) {
           if (data.correction) {
-            // Remove the entry being replaced, identified by name so it works
-            // even when other items were logged in between.
-            const target = (data.correctionTarget || '').toLowerCase().trim();
-            if (target) {
+            // correctionTargets lists every entry name (from Today's log) to remove.
+            // Using an array handles the case where the same food was logged multiple
+            // times under slightly different names across separate turns.
+            const targets = (data.correctionTargets || [])
+              .map(t => t.toLowerCase().trim())
+              .filter(Boolean);
+            if (targets.length > 0) {
               const current = useStore.getState().entries;
-              // Prefer exact name match; fall back to substring match
-              const exact = current.filter(e => e.name.toLowerCase() === target);
-              const toRemove = exact.length > 0
-                ? exact
-                : current.filter(e =>
-                    e.name.toLowerCase().includes(target) ||
-                    target.includes(e.name.toLowerCase())
-                  );
+              const toRemove = current.filter(e => {
+                const eName = e.name.toLowerCase();
+                return targets.some(t => eName === t || eName.includes(t) || t.includes(eName));
+              });
               toRemove.forEach(e => removeEntry(e.id));
             } else if (lastAddedIdsRef.current.length > 0) {
               // Fallback: remove whatever was most recently logged

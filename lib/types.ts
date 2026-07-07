@@ -68,8 +68,8 @@ export interface CoachResponse {
   question: string;
   entries: CoachEntry[];
   reply: string;
-  correction: boolean;        // true when user is correcting a previously logged item
-  correctionTarget: string;   // name of the entry being replaced (empty if not a correction)
+  correction: boolean;          // true when user is correcting previously logged items
+  correctionTargets: string[];  // names of ALL entries to remove (exact names from Today's log)
 }
 
 export interface CoachContext {
