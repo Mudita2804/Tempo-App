@@ -2,6 +2,7 @@
 
 import { useStore } from '@/lib/store';
 import { createClient } from '@/lib/supabase/client';
+import { useIsMobile } from '@/lib/hooks';
 
 function parseNum(s: string) {
   return Math.max(0, parseInt(s.replace(/[^0-9]/g, ''), 10) || 0);
@@ -14,13 +15,43 @@ const CALORIE_FIELDS = [
   { label: 'Fat · g',          key: 'fatTarget'     },
 ] as const;
 
+const ACTIVITY_FACTOR: Record<string, number> = {
+  sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very: 1.9,
+};
+
 export function Settings() {
-  const goals            = useStore(s => s.goals);
-  const profile          = useStore(s => s.profile);
-  const editGoal         = useStore(s => s.editGoal);
-  const setProfile       = useStore(s => s.setProfile);
+  const goals           = useStore(s => s.goals);
+  const profile         = useStore(s => s.profile);
+  const sex             = useStore(s => s.sex);
+  const activity        = useStore(s => s.activity);
+  const age             = useStore(s => s.age);
+  const weightKg        = useStore(s => s.weightKg);
+  const heightCm        = useStore(s => s.heightCm);
+  const targetWeightKg  = useStore(s => s.targetWeightKg);
+  const editGoal        = useStore(s => s.editGoal);
+  const setProfile      = useStore(s => s.setProfile);
+  const isMobile        = useIsMobile();
+
   const goal = goals.find(g => g.type === profile.goalType) ?? goals[0];
   const fmt  = (n: number) => Math.round(n).toLocaleString();
+
+  // ── Focus card derivations (mirrors onboarding StepGoals) ──────────────────
+  const goalType    = profile.goalType;
+  const weightDelta = Math.abs(weightKg - targetWeightKg);
+  const deltaStr    = weightDelta % 1 === 0 ? String(weightDelta) : weightDelta.toFixed(1);
+  const targetLine  =
+    goalType === 'lose'  ? `Lose ${deltaStr} kg` :
+    goalType === 'gain'  ? `Gain ${deltaStr} kg` :
+                           `Maintain ${weightKg} kg`;
+  const bmr = sex === 'male'
+    ? 10 * weightKg + 6.25 * heightCm - 5 * age + 5
+    : 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
+  const tdee         = bmr * (ACTIVITY_FACTOR[activity] ?? 1.55);
+  const dailyDeficit = tdee - goal.target;
+  const showTimeline = goalType === 'lose' && weightDelta > 0 && dailyDeficit > 0;
+  const weeks        = showTimeline
+    ? Math.round((weightDelta * 7700) / (dailyDeficit * 7))
+    : 0;
 
   function chipStyle(sel: boolean): React.CSSProperties {
     return {
@@ -33,7 +64,7 @@ export function Settings() {
   }
 
   return (
-    <div style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
+    <div style={{ flex: 1, padding: isMobile ? '20px 16px' : '32px 40px', overflowY: 'auto' }}>
       <div style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.01em', marginBottom: 24 }}>
         Settings
       </div>
@@ -47,21 +78,24 @@ export function Settings() {
         }}>
           <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Your goal</div>
 
-          {/* Summary row */}
-          <div style={{ display: 'flex', gap: 24 }}>
-            {[
-              { key: 'FOCUS',     value: goal.title                   },
-              { key: 'DAILY NET', value: `${fmt(goal.target)} kcal`   },
-              { key: 'PROTEIN',   value: `${goal.proteinTarget}g`      },
-            ].map(({ key, value }, i) => (
-              <div key={key} style={i > 0 ? { borderLeft: '1px solid #ece6dc', paddingLeft: 24 } : {}}>
-                <div style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
-                  color: '#8a8478', marginBottom: 4,
-                }}>{key}</div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{value}</div>
+          {/* Focus card */}
+          <div style={{
+            background: '#F1F8F3', border: '1px solid #B6DCC3',
+            borderRadius: 16, padding: 22, marginBottom: 20,
+          }}>
+            <div style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+              fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase',
+              color: '#256B3F', marginBottom: 8,
+            }}>Your Focus</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#211e1a', letterSpacing: '-0.01em', marginBottom: showTimeline ? 6 : 0 }}>
+              {targetLine}
+            </div>
+            {showTimeline && (
+              <div style={{ fontSize: 14, color: '#3a3530' }}>
+                ~{weeks} week{weeks !== 1 ? 's' : ''} at this pace
               </div>
-            ))}
+            )}
           </div>
 
           {/* Goal type chips (labels reflect any user edits) */}

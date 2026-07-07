@@ -564,56 +564,6 @@ function StepGoals() {
         </div>
       )}
 
-      {/* Water intake */}
-      {tracking.water && (
-        <div style={{
-          background: '#fff', border: '1px solid #ece6dc', borderRadius: 14, padding: 18,
-          marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#211e1a' }}>Water intake</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <input
-              value={profile.water}
-              onChange={e => setProfile({ water: parseDecimal(e.target.value) })}
-              inputMode="decimal"
-              onFocus={ev => { ev.currentTarget.style.borderBottomColor = '#3f9d5f'; }}
-              onBlur={ev  => { ev.currentTarget.style.borderBottomColor = '#ece6dc'; }}
-              style={{
-                fontSize: 22, fontWeight: 700, color: '#211e1a', background: 'transparent',
-                border: 'none', borderBottom: '2px solid #ece6dc', outline: 'none',
-                width: 70, textAlign: 'right', fontFamily: 'inherit', padding: '0 0 3px',
-              }}
-            />
-            <span style={{ fontSize: 13, color: '#8a8478' }}>L / day</span>
-          </div>
-        </div>
-      )}
-
-      {/* Step count */}
-      {tracking.steps && (
-        <div style={{
-          background: '#fff', border: '1px solid #ece6dc', borderRadius: 14, padding: 18,
-          marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#211e1a' }}>Step count</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <input
-              value={profile.steps}
-              onChange={e => setProfile({ steps: parseNum(e.target.value) })}
-              inputMode="numeric"
-              onFocus={ev => { ev.currentTarget.style.borderBottomColor = '#3f9d5f'; }}
-              onBlur={ev  => { ev.currentTarget.style.borderBottomColor = '#ece6dc'; }}
-              style={{
-                fontSize: 22, fontWeight: 700, color: '#211e1a', background: 'transparent',
-                border: 'none', borderBottom: '2px solid #ece6dc', outline: 'none',
-                width: 110, textAlign: 'right', fontFamily: 'inherit', padding: '0 0 3px',
-              }}
-            />
-            <span style={{ fontSize: 13, color: '#8a8478' }}>steps / day</span>
-          </div>
-        </div>
-      )}
-
       {/* Navigation */}
       <div style={{ display: 'flex', gap: 12, marginTop: 28 }}>
         <BtnSecondary onClick={obBack}>Back</BtnSecondary>
