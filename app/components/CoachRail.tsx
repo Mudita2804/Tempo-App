@@ -6,7 +6,11 @@ import { useIsMobile } from '@/lib/hooks';
 import { callCoach } from '@/lib/coach';
 import type { CoachContext } from '@/lib/types';
 
-export function CoachRail() {
+interface Props {
+  onClose?: () => void;
+}
+
+export function CoachRail({ onClose }: Props = {}) {
   const [inputText, setInputText]   = useState('');
   const [listening, setListening]   = useState(false);
   const [thinking,  setThinking]    = useState(false);
@@ -182,9 +186,8 @@ export function CoachRail() {
     <div style={{
       width: isMobile ? '100%' : 340,
       flexShrink: 0, background: '#fff',
-      borderLeft: isMobile ? 'none' : '1px solid #ece6dc',
-      display: 'flex', flexDirection: 'column',
-      animation: isMobile ? 'tslideup .22s ease' : undefined,
+      borderLeft: '1px solid #ece6dc',
+      display: 'flex', flexDirection: 'column', height: '100%',
     }}>
       {/* Header */}
       <div style={{
@@ -201,6 +204,20 @@ export function CoachRail() {
           marginLeft: 'auto', fontFamily: "'JetBrains Mono', monospace",
           fontSize: 10, color: '#aaa297', letterSpacing: '0.06em',
         }}>AI · live</div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={{
+              background: '#f3efe8', border: 'none', borderRadius: 8,
+              width: 30, height: 30, cursor: 'pointer', marginLeft: 8,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b655c" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6L6 18"/>
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Messages */}
