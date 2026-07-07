@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useStore } from '@/lib/store';
+import { createClient } from '@/lib/supabase/client';
 import type { Activity, Pace, Sex } from '@/lib/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -195,7 +196,11 @@ function StepTrack() {
   const tracking    = useStore(s => s.tracking);
   const toggleTrack = useStore(s => s.toggleTrack);
   const obNext      = useStore(s => s.obNext);
-  const obBack      = useStore(s => s.obBack);
+
+  async function handleBack() {
+    await createClient().auth.signOut();
+    window.location.href = '/login';
+  }
 
   return (
     <>
@@ -237,7 +242,7 @@ function StepTrack() {
       </div>
 
       <div style={{ display: 'flex', gap: 12 }}>
-        <BtnSecondary onClick={obBack}>Back</BtnSecondary>
+        <BtnSecondary onClick={handleBack}>Back</BtnSecondary>
         <BtnPrimary onClick={obNext}>Continue →</BtnPrimary>
       </div>
     </>
