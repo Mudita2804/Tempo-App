@@ -188,15 +188,19 @@ export function AppShell() {
   }
 
   // ── Mobile layout ─────────────────────────────────────────────────────────────
+  // Use position:fixed for both top bar and main content — same pattern as the
+  // CoachRail overlay — because it gives a rock-solid height contract (explicit
+  // top/bottom) that works regardless of dvh support or flex height chain quirks.
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', width: '100%', background: '#f7f4ef', overflow: 'hidden' }}>
+    <div style={{ background: '#f7f4ef' }}>
 
-      {/* Mobile top bar */}
+      {/* Mobile top bar — fixed at top */}
       <div style={{
-        height: MOBILE_TOP_H, flexShrink: 0,
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 20,
+        height: MOBILE_TOP_H,
         background: '#fff', borderBottom: '1px solid #ece6dc',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 16px', zIndex: 10,
+        padding: '0 16px',
       }}>
         {/* Hamburger — open nav */}
         <button
@@ -237,8 +241,15 @@ export function AppShell() {
         </button>
       </div>
 
-      {/* Main content — must be a flex column so children's flex:1 + overflowY:auto works */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Main content — fixed below top bar, this IS the scroll container.
+          position:fixed with top+bottom gives an explicit height without relying
+          on dvh units or flex chain propagation. */}
+      <div style={{
+        position: 'fixed', top: MOBILE_TOP_H, left: 0, right: 0, bottom: 0,
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        background: '#f7f4ef',
+      }}>
         {screen === 'today'    && <Today onSelectEntry={setSelectedId} />}
         {screen === 'trends'   && <Trends />}
         {screen === 'foods'    && <Foods onSelectEntry={setSelectedId} />}

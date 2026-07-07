@@ -366,9 +366,45 @@ The previous version was a no-op (`return NextResponse.next()`) which caused dat
 
 ---
 
+## Mobile layout
+
+Mobile uses a different rendering path than desktop in `AppShell.tsx`.
+
+**Pattern:** Both the top bar and the main content area use `position: fixed` — the same approach as the CoachRail overlay — because it gives a rock-solid height contract (explicit `top`/`bottom`) that works regardless of `dvh` unit support or flex height chain quirks.
+
+```
+AppShell mobile:
+  <div>  {/* plain wrapper, no height */}
+    top bar:  position: fixed, top: 0, left: 0, right: 0, height: MOBILE_TOP_H, zIndex: 20
+    content:  position: fixed, top: MOBILE_TOP_H, left: 0, right: 0, bottom: 0,
+              overflowY: auto, WebkitOverflowScrolling: touch
+    overlays: position: fixed, zIndex: 49 (left nav + right coach, scrim at zIndex 48)
+  </div>
+```
+
+**Why not flex + `100dvh`:** The initial implementation used `height: 100dvh` on the outer container with a flex column. `100dvh` has inconsistent support on older mobile browsers; when it falls back, the outer container gets content-height, which breaks the flex chain and `overflowY: auto` never triggers. CoachRail worked because its overlay uses `position: fixed, top: 0, bottom: 0`.
+
+**Screen components on mobile:** Each screen (`Today`, `Trends`, `Foods`, `Settings`) has `flex: 1, overflowY: auto` on its root div. In the fixed parent (not a flex container), `flex: 1` is a no-op. Their `overflowY: auto` doesn't trigger either (no height constraint on them individually). The **parent fixed div is the scroll container** — all screen content scrolls as one block.
+
+**Desktop:** Unchanged 3-column flex layout with `height: 100vh`. Screen components' `flex: 1, overflowY: auto` works normally there.
+
+**Key constant:** `MOBILE_TOP_H = 52` (px) — height of the fixed top bar.
+
+---
+
 ## Changelog
 
 Listed newest-first.
+
+### Session 2026-07d — fix mobile scroll for all screens
+
+**Bug:** Scrolling only worked in the CoachRail overlay; Today, Trends, Foods, Settings didn't scroll on mobile.
+
+**Root cause:** The outer container used `height: 100dvh` with a flex column. `100dvh` has inconsistent support on older mobile browsers — when it falls back, the outer container collapses to content height, breaking the flex chain so `overflowY: auto` on the screen components never triggers. CoachRail worked because its overlay uses `position: fixed, top: 0, bottom: 0` (explicit pixel bounds).
+
+**Fix:** Replaced the flex-column layout with `position: fixed` for both the top bar and the main content div — the same pattern as CoachRail. The main content has `top: 52px, bottom: 0` → definite height without relying on viewport units. `overflowY: auto` + `-webkit-overflow-scrolling: touch` on the main content div make all screens scrollable.
+
+Files changed: `AppShell.tsx` (mobile layout section only).
 
 ### Session 2026-07c — fix duplicate entries on correction
 
