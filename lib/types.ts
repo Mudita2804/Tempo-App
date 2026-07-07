@@ -82,4 +82,5 @@ export interface CoachContext {
   protein: number;
   proteinTarget: number;
   history: string;         // recent transcript, newest last
+  logSummary: string;      // "elaichi banana (60 kcal), walnuts (52 kcal)" — exact stored names
 }

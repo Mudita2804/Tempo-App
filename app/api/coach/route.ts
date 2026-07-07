@@ -116,7 +116,7 @@ RULE 3 — ACCURATE USDA CALORIES. Use real values: 1 Medjool date = 66 kcal; 1 
 
 RULE 4 — USER QUESTIONS. If the user is questioning or disputing a logged entry (e.g. "how is that X calories?", "that seems wrong", "that's too high"), return entries:[] and address their concern in "reply". Do not log anything.
 
-RULE 5 — CORRECTIONS. If the user is clarifying or correcting a previously logged food (e.g. "I meant yelakki bananas", "actually it was 3 not 2", "those were X not Y", or naming the specific variety after a generic was logged), return the corrected entries with correction:true AND set correctionTarget to the exact name of the food entry being replaced (exactly as it was logged — e.g. "elaichi banana", "date", "walnuts"). The app uses correctionTarget to find and remove the right entry from the log, regardless of what else was logged in between. IMPORTANT: If the user corrects the type/name without re-stating the quantity, infer the quantity from the most recent logged item in conversation history — do NOT ask again (overrides RULE 2). All other cases: correction:false, correctionTarget:"".
+RULE 5 — CORRECTIONS. If the user is clarifying or correcting a previously logged food (e.g. "I meant yelakki bananas", "actually it was 3 not 2", "those were X not Y", or naming the specific variety after a generic was logged), return the corrected entries with correction:true AND set correctionTarget to the EXACT name of the entry being replaced, copied character-for-character from "Today's log" above. This is critical — the app does a case-insensitive name lookup against the live log, so correctionTarget must match exactly what appears there. IMPORTANT: If the user corrects the type/name without re-stating the quantity, infer the quantity from "Today's log" or conversation history — do NOT ask again (overrides RULE 2). All other cases: correction:false, correctionTarget:"".
 
 For activities: estimate kcal BURNED (positive), macros 0, durationMin if estimable.
 "reply" = 1–2 warm sentences acknowledging what was logged or answering the question.`;
@@ -125,6 +125,7 @@ For activities: estimate kcal BURNED (positive), macros 0, durationMin if estima
 
 function buildUserTurn(text: string, ctx: CoachContext): string {
   return `Goal "${ctx.goalTitle}": ${ctx.target} kcal/day net. Today: eaten ${ctx.eaten} kcal, burned ${ctx.burned} kcal, net ${ctx.net} kcal, protein ${ctx.protein}g / ${ctx.proteinTarget}g.
+Today's log: ${ctx.logSummary}
 Recent conversation:
 ${ctx.history}
 User: "${text}"`;

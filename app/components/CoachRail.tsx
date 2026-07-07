@@ -55,6 +55,10 @@ export function CoachRail() {
     thinkingRef.current = true;
     setMicError(null);
 
+    const logSummary = state.entries.length > 0
+      ? state.entries.map(e => `${e.name} (${e.kcal} kcal)`).join(', ')
+      : 'empty';
+
     const ctx: CoachContext = {
       goalTitle:     g.title,
       target:        g.target,
@@ -65,6 +69,7 @@ export function CoachRail() {
       protein:       t.protein,
       proteinTarget: g.proteinTarget,
       history,
+      logSummary,
     };
 
     try {
