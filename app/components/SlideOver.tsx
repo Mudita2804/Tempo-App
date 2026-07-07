@@ -1,6 +1,7 @@
 'use client';
 
 import { useStore } from '@/lib/store';
+import { useIsMobile } from '@/lib/hooks';
 import { sourceLabel } from './SourceBadge';
 
 interface Props {
@@ -18,6 +19,7 @@ export function SlideOver({ selectedId, onClose }: Props) {
   const entries    = useStore(s => s.entries);
   const removeEntry = useStore(s => s.removeEntry);
   const updateEntry = useStore(s => s.updateEntry);
+  const isMobile   = useIsMobile();
 
   if (selectedId === null) return null;
   const entry = entries.find(e => e.id === selectedId);
@@ -58,9 +60,13 @@ export function SlideOver({ selectedId, onClose }: Props) {
 
       {/* Panel */}
       <div style={{
-        position: 'fixed', top: 0, right: 0, bottom: 0, width: 420,
-        background: '#fff', zIndex: 41, boxShadow: '-12px 0 40px rgba(0,0,0,.12)',
-        display: 'flex', flexDirection: 'column', animation: 'tslide .28s ease',
+        position: 'fixed', top: 0, right: 0, bottom: 0,
+        left: isMobile ? 0 : 'auto',
+        width: isMobile ? '100%' : 420,
+        background: '#fff', zIndex: 41,
+        boxShadow: isMobile ? 'none' : '-12px 0 40px rgba(0,0,0,.12)',
+        display: 'flex', flexDirection: 'column',
+        animation: isMobile ? 'tslideup .28s ease' : 'tslide .28s ease',
       }}>
         {/* Header */}
         <div style={{

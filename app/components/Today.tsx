@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useStore } from '@/lib/store';
+import { useIsMobile } from '@/lib/hooks';
 import type { Entry } from '@/lib/types';
 import { SourceBadge } from './SourceBadge';
 
@@ -97,6 +98,7 @@ export function Today({ onSelectEntry }: Props) {
   const entries    = useStore(s => s.entries);
   const totals     = useStore(s => s.totals);
   const activeGoal = useStore(s => s.activeGoal);
+  const isMobile   = useIsMobile();
 
   const t    = totals();
   const goal = activeGoal();
@@ -124,18 +126,18 @@ export function Today({ onSelectEntry }: Props) {
   const overBudget = remaining < 0;
 
   return (
-    <div style={{ flex: 1, padding: '30px 32px', overflowY: 'auto' }}>
+    <div style={{ flex: 1, padding: isMobile ? '20px 16px' : '30px 32px', overflowY: 'auto' }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex', justifyContent: 'space-between',
-        alignItems: 'flex-end', marginBottom: 22,
+        alignItems: 'flex-end', marginBottom: isMobile ? 16 : 22,
       }}>
-        <div>
-          <div style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.01em' }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: isMobile ? 18 : 23, fontWeight: 700, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {greeting}, {profile.name}
           </div>
-          <div style={{ fontSize: 14, color: '#8a8478', marginTop: 2 }}>{dateStr}</div>
+          <div style={{ fontSize: 13, color: '#8a8478', marginTop: 2 }}>{dateStr}</div>
         </div>
         <div style={{
           fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
@@ -150,12 +152,14 @@ export function Today({ onSelectEntry }: Props) {
       {/* ── Hero card ──────────────────────────────────────────────────────── */}
       <div style={{
         background: '#fff', border: '1px solid #ece6dc', borderRadius: 18,
-        padding: 26, display: 'flex', gap: 30, alignItems: 'center', marginBottom: 18,
+        padding: isMobile ? 18 : 26,
+        display: 'flex', flexDirection: isMobile ? 'column' : 'row',
+        gap: isMobile ? 14 : 30, alignItems: 'center', marginBottom: 18,
         boxShadow: '0 1px 3px rgba(0,0,0,.08)',
       }}>
         {/* Ring */}
-        <div style={{ position: 'relative', flexShrink: 0, width: 160, height: 160 }}>
-          <svg width="160" height="160" viewBox="0 0 160 160">
+        <div style={{ position: 'relative', flexShrink: 0, width: isMobile ? 120 : 160, height: isMobile ? 120 : 160 }}>
+          <svg width={isMobile ? 120 : 160} height={isMobile ? 120 : 160} viewBox="0 0 160 160">
             <circle cx="80" cy="80" r="66" fill="none" stroke="#ece6dc" strokeWidth="13" />
             <circle
               cx="80" cy="80" r="66" fill="none" stroke="#3f9d5f" strokeWidth="13"
@@ -177,9 +181,9 @@ export function Today({ onSelectEntry }: Props) {
           </div>
         </div>
 
-        {/* Right of ring */}
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, color: '#6b655c', marginBottom: 14, lineHeight: 1.5 }}>
+        {/* Right of ring / below ring on mobile */}
+        <div style={{ flex: 1, width: isMobile ? '100%' : undefined }}>
+          <div style={{ fontSize: 14, color: '#6b655c', marginBottom: 14, lineHeight: 1.5, textAlign: isMobile ? 'center' : 'left' }}>
             You&apos;ve netted{' '}
             <strong style={{ color: '#211e1a' }}>{fmt(net)}</strong> of your{' '}
             <strong style={{ color: '#211e1a' }}>{fmt(target)}</strong> goal —{' '}
@@ -187,7 +191,7 @@ export function Today({ onSelectEntry }: Props) {
               {overBudget ? `${fmt(-remaining)} kcal over` : `${fmt(remaining)} kcal left`}
             </strong>.
           </div>
-          <div style={{ display: 'flex', gap: 24 }}>
+          <div style={{ display: 'flex', gap: isMobile ? 0 : 24, justifyContent: isMobile ? 'space-around' : 'flex-start' }}>
             {(
               [
                 { label: 'EATEN',   value: fmt(t.eaten),         unit: '' },
@@ -195,14 +199,14 @@ export function Today({ onSelectEntry }: Props) {
                 { label: 'PROTEIN', value: String(t.protein),    unit: 'g' },
               ] as Array<{ label: string; value: string; unit: string }>
             ).map(({ label, value, unit }, i) => (
-              <div key={label} style={i > 0 ? { borderLeft: '1px solid #ece6dc', paddingLeft: 24 } : {}}>
+              <div key={label} style={i > 0 ? { borderLeft: '1px solid #ece6dc', paddingLeft: isMobile ? 16 : 24 } : {}}>
                 <div style={{
                   fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 11, color: '#8a8478', letterSpacing: '0.04em',
+                  fontSize: 10, color: '#8a8478', letterSpacing: '0.04em',
                 }}>{label}</div>
-                <div style={{ fontSize: 22, fontWeight: 700 }}>
+                <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700 }}>
                   {value}
-                  {unit && <span style={{ fontSize: 13, color: '#8a8478', fontWeight: 500 }}>{unit}</span>}
+                  {unit && <span style={{ fontSize: 12, color: '#8a8478', fontWeight: 500 }}>{unit}</span>}
                 </div>
               </div>
             ))}
@@ -211,20 +215,21 @@ export function Today({ onSelectEntry }: Props) {
       </div>
 
       {/* ── Macro bars ─────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
         {([
           { label: 'Protein', val: t.protein,    max: goal.proteinTarget, color: '#3f9d5f' },
           { label: 'Carbs',   val: carbG,         max: goal.carbTarget,    color: '#c9b48a' },
           { label: 'Fat',     val: fatG,           max: goal.fatTarget,     color: '#d99a6c' },
         ] as const).map(({ label, val, max, color }) => (
           <div key={label} style={{
-            flex: 1, background: '#fff', border: '1px solid #ece6dc',
-            borderRadius: 14, padding: '14px 16px',
+            flex: '1 1 28%', minWidth: 90,
+            background: '#fff', border: '1px solid #ece6dc',
+            borderRadius: 14, padding: isMobile ? '12px 14px' : '14px 16px',
             boxShadow: '0 1px 3px rgba(0,0,0,.08)',
           }}>
             <div style={{
               display: 'flex', justifyContent: 'space-between',
-              fontSize: 13, marginBottom: 9,
+              fontSize: isMobile ? 12 : 13, marginBottom: 9,
             }}>
               <span style={{ fontWeight: 600, color: '#211e1a' }}>{label}</span>
               <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#6b655c' }}>

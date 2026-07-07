@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '@/lib/store';
+import { useIsMobile } from '@/lib/hooks';
 import { callCoach } from '@/lib/coach';
 import type { CoachContext } from '@/lib/types';
 
@@ -10,6 +11,7 @@ export function CoachRail() {
   const [listening, setListening]   = useState(false);
   const [thinking,  setThinking]    = useState(false);
   const [micError,  setMicError]    = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const messages       = useStore(s => s.messages);
   const addEntries     = useStore(s => s.addEntries);
@@ -178,8 +180,11 @@ export function CoachRail() {
 
   return (
     <div style={{
-      width: 340, flexShrink: 0, background: '#fff',
-      borderLeft: '1px solid #ece6dc', display: 'flex', flexDirection: 'column',
+      width: isMobile ? '100%' : 340,
+      flexShrink: 0, background: '#fff',
+      borderLeft: isMobile ? 'none' : '1px solid #ece6dc',
+      display: 'flex', flexDirection: 'column',
+      animation: isMobile ? 'tslideup .22s ease' : undefined,
     }}>
       {/* Header */}
       <div style={{
