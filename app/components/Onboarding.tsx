@@ -455,11 +455,21 @@ const CALORIE_FIELDS = [
   { label: 'Fat · g',          key: 'fatTarget'     },
 ] as const;
 
+const ACTIVITY_FACTOR: Record<string, number> = {
+  sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very: 1.9,
+};
+
 function StepGoals() {
   const goals           = useStore(s => s.goals);
   const profile         = useStore(s => s.profile);
   const tracking        = useStore(s => s.tracking);
   const pace            = useStore(s => s.pace);
+  const sex             = useStore(s => s.sex);
+  const activity        = useStore(s => s.activity);
+  const age             = useStore(s => s.age);
+  const weightKg        = useStore(s => s.weightKg);
+  const heightCm        = useStore(s => s.heightCm);
+  const targetWeightKg  = useStore(s => s.targetWeightKg);
   const editGoal        = useStore(s => s.editGoal);
   const setProfile      = useStore(s => s.setProfile);
   const setScreen       = useStore(s => s.setScreen);
@@ -468,6 +478,28 @@ function StepGoals() {
   const goal = goals.find(g => g.type === profile.goalType) ?? goals[0];
 
   const showCalories = tracking.calories || tracking.weightLoss;
+
+  // ── Focus card derivations ────────────────────────────────────────────────
+  const goalType = profile.goalType;
+  const weightDelta = Math.abs(weightKg - targetWeightKg);
+  const deltaStr = weightDelta % 1 === 0 ? String(weightDelta) : weightDelta.toFixed(1);
+
+  const targetLine =
+    goalType === 'lose'     ? `Lose ${deltaStr} kg` :
+    goalType === 'gain'     ? `Gain ${deltaStr} kg` :
+                              `Maintain ${weightKg} kg`;
+
+  // Timeline: weeks = (weightDelta × 7700) / (dailyDeficit × 7)
+  // dailyDeficit = TDEE − goal.target (recalculates live when user edits kcal)
+  const bmr = sex === 'male'
+    ? 10 * weightKg + 6.25 * heightCm - 5 * age + 5
+    : 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
+  const tdee = bmr * (ACTIVITY_FACTOR[activity] ?? 1.55);
+  const dailyDeficit = tdee - goal.target;
+  const showTimeline = goalType === 'lose' && weightDelta > 0 && dailyDeficit > 0;
+  const weeks = showTimeline
+    ? Math.round((weightDelta * 7700) / (dailyDeficit * 7))
+    : 0;
 
   const headline = tracking.weightLoss
     ? `A net target of about ${fmt(goal.target)} kcal a day should move you toward your goal at a ${pace} pace. Everything below is editable.`
@@ -479,6 +511,26 @@ function StepGoals() {
       <p style={{ fontSize: 15, lineHeight: 1.55, color: '#6b655c', margin: '0 0 22px' }}>
         {headline}
       </p>
+
+      {/* ── Focus card ─────────────────────────────────────────────────────── */}
+      <div style={{
+        background: '#F1F8F3', border: '1px solid #B6DCC3',
+        borderRadius: 16, padding: 22, marginBottom: 20,
+      }}>
+        <div style={{
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+          fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase',
+          color: '#256B3F', marginBottom: 8,
+        }}>Your Focus</div>
+        <div style={{ fontSize: 24, fontWeight: 800, color: '#211e1a', letterSpacing: '-0.01em', marginBottom: showTimeline ? 6 : 0 }}>
+          {targetLine}
+        </div>
+        {showTimeline && (
+          <div style={{ fontSize: 14, color: '#3a3530' }}>
+            ~{weeks} week{weeks !== 1 ? 's' : ''} at this pace
+          </div>
+        )}
+      </div>
 
       {/* Calories & macros */}
       {showCalories && (
