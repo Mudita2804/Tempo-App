@@ -8,6 +8,7 @@ import { SourceBadge } from './SourceBadge';
 
 interface Props {
   onSelectEntry: (id: number) => void;
+  onOpenCoach?: () => void;
 }
 
 const CIRCUMFERENCE = 2 * Math.PI * 66; // ≈ 414.69
@@ -93,7 +94,7 @@ function LogRow({ entry, onSelect }: { entry: Entry; onSelect: () => void }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function Today({ onSelectEntry }: Props) {
+export function Today({ onSelectEntry, onOpenCoach }: Props) {
   const profile    = useStore(s => s.profile);
   const entries    = useStore(s => s.entries);
   const totals     = useStore(s => s.totals);
@@ -254,8 +255,40 @@ export function Today({ onSelectEntry }: Props) {
 
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {sorted.length === 0 ? (
-          <div style={{ fontSize: 14, color: '#aaa297', padding: '16px 6px' }}>
-            No entries yet — tell the coach what you ate or did.
+          <div style={{
+            margin: '8px 0 0', padding: '28px 24px',
+            background: '#fff', border: '1px solid #ece6dc',
+            borderRadius: 16, textAlign: 'center',
+          }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 13, background: '#e8f3ec',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 14px',
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3f9d5f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#211e1a', marginBottom: 6 }}>
+              Nothing logged yet
+            </div>
+            <div style={{ fontSize: 13.5, color: '#8a8478', lineHeight: 1.55, marginBottom: isMobile ? 18 : 0 }}>
+              {isMobile
+                ? 'Tap the chat icon in the top-right to open your coach and log your first meal or workout.'
+                : 'Use the coach panel on the right — type or speak what you ate or did.'}
+            </div>
+            {isMobile && (
+              <button
+                onClick={onOpenCoach}
+                style={{
+                  background: '#3f9d5f', color: '#fff', border: 'none',
+                  borderRadius: 11, padding: '11px 24px',
+                  fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                Open coach
+              </button>
+            )}
           </div>
         ) : sorted.map(entry => (
           <LogRow key={entry.id} entry={entry} onSelect={() => onSelectEntry(entry.id)} />

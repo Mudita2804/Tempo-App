@@ -18,6 +18,7 @@ export function CoachRail({ onClose }: Props = {}) {
   const isMobile = useIsMobile();
 
   const messages       = useStore(s => s.messages);
+  const entries        = useStore(s => s.entries);
   const addEntries     = useStore(s => s.addEntries);
   const replaceEntries = useStore(s => s.replaceEntries);
   const removeEntry    = useStore(s => s.removeEntry);
@@ -268,6 +269,38 @@ export function CoachRail({ onClose }: Props = {}) {
           </div>
         )}
       </div>
+
+      {/* Starter prompts — shown when nothing logged yet */}
+      {entries.length === 0 && !thinking && (
+        <div style={{ padding: '0 16px 12px' }}>
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+            color: '#aaa297', letterSpacing: '0.06em', textTransform: 'uppercase',
+            marginBottom: 8,
+          }}>Try saying</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+            {[
+              'Two eggs and toast',
+              '30 min walk',
+              'Cup of chai with milk',
+              '100g chicken breast',
+            ].map(prompt => (
+              <button
+                key={prompt}
+                onClick={() => submit(prompt, 'text')}
+                style={{
+                  background: '#f3efe8', border: '1px solid #ece6dc',
+                  borderRadius: 20, padding: '7px 13px',
+                  fontSize: 12.5, color: '#3a3530', cursor: 'pointer',
+                  fontFamily: 'inherit', lineHeight: 1,
+                }}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Mic error */}
       {micError && (

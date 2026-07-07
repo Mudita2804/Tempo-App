@@ -151,7 +151,7 @@ export function AppShell() {
 
         {/* Main content */}
         <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden', position: 'relative' }}>
-          {screen === 'today' && <Today onSelectEntry={setSelectedId} />}
+          {screen === 'today' && <Today onSelectEntry={setSelectedId} onOpenCoach={() => setRightOpen(true)} />}
           {screen === 'trends'   && <Trends />}
           {screen === 'foods'    && <Foods onSelectEntry={setSelectedId} />}
           {screen === 'settings' && <Settings />}
