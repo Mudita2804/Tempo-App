@@ -41,6 +41,13 @@ export function SlideOver({ selectedId, onClose }: Props) {
     updateEntry(selectedId!, { kcal: v });
   }
 
+  function handleMacroChange(field: 'protein' | 'carbs' | 'fat') {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      const v = Math.max(0, parseInt(e.target.value.replace(/[^0-9]/g, ''), 10) || 0);
+      updateEntry(selectedId!, { [field]: v });
+    };
+  }
+
   return (
     <>
       {/* Scrim */}
@@ -140,20 +147,42 @@ export function SlideOver({ selectedId, onClose }: Props) {
               }}>MACRONUTRIENTS</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginBottom: 20 }}>
                 {([
-                  { label: 'Protein', grams: entry.protein, pct: Math.round(pc / mc * 100), color: '#3f9d5f' },
-                  { label: 'Carbs',   grams: entry.carbs,   pct: Math.round(cc / mc * 100), color: '#c9b48a' },
-                  { label: 'Fat',     grams: entry.fat,     pct: Math.round(fc / mc * 100), color: '#d99a6c' },
-                ] as const).map(({ label, grams, pct, color }) => (
+                  { label: 'Protein', field: 'protein' as const, grams: entry.protein, pct: Math.round(pc / mc * 100), color: '#3f9d5f' },
+                  { label: 'Carbs',   field: 'carbs'   as const, grams: entry.carbs,   pct: Math.round(cc / mc * 100), color: '#c9b48a' },
+                  { label: 'Fat',     field: 'fat'     as const, grams: entry.fat,     pct: Math.round(fc / mc * 100), color: '#d99a6c' },
+                ]).map(({ label, field, grams, pct, color }) => (
                   <div key={label}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, marginBottom: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13.5, marginBottom: 6 }}>
                       <span style={{ fontWeight: 600 }}>{label}</span>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#6b655c' }}>{grams}g</span>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                        <input
+                          value={grams}
+                          onChange={handleMacroChange(field)}
+                          inputMode="numeric"
+                          onFocus={e => { e.currentTarget.style.borderBottomColor = color; }}
+                          onBlur={e  => { e.currentTarget.style.borderBottomColor = 'transparent'; }}
+                          style={{
+                            fontFamily: "'JetBrains Mono', monospace", fontSize: 14,
+                            fontWeight: 600, color: '#211e1a',
+                            background: 'transparent', border: 'none',
+                            borderBottom: '2px solid transparent', outline: 'none',
+                            width: 48, textAlign: 'right', padding: '0 0 1px',
+                          }}
+                        />
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: '#8a8478' }}>g</span>
+                      </div>
                     </div>
                     <div style={{ height: 8, borderRadius: 4, background: '#ece6dc', overflow: 'hidden' }}>
                       <div style={{ height: '100%', background: color, width: `${pct}%` }} />
                     </div>
                   </div>
                 ))}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20, fontSize: 12, color: '#aaa297' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#aaa297" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                </svg>
+                Click any number to edit it
               </div>
             </>
           )}

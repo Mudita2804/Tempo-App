@@ -24,7 +24,13 @@ function clampPct(v: number, target: number) {
 
 function LogRow({ entry, onSelect }: { entry: Entry; onSelect: () => void }) {
   const [hovered, setHovered] = useState(false);
+  const removeEntry = useStore(s => s.removeEntry);
   const isActivity = entry.type === 'activity';
+
+  function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation();
+    removeEntry(entry.id);
+  }
 
   return (
     <div
@@ -63,6 +69,23 @@ function LogRow({ entry, onSelect }: { entry: Entry; onSelect: () => void }) {
       }}>
         {isActivity ? '−' : '+'}{fmt(entry.kcal)}
       </span>
+      {/* Quick-delete — visible on hover, stops propagation so it doesn't open SlideOver */}
+      <div
+        onClick={handleDelete}
+        style={{
+          width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: hovered ? 1 : 0, transition: 'opacity .12s',
+          background: '#fbeae3', cursor: 'pointer',
+        }}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c0492f" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+          <path d="M10 11v6M14 11v6" />
+          <path d="M9 6V4h6v2" />
+        </svg>
+      </div>
     </div>
   );
 }

@@ -8,7 +8,7 @@ Bootstrap context for new sessions. Read this before touching any coach-related 
 
 The coach is a conversational food/activity logger. The user types or speaks what they ate or did. The coach parses natural language, asks clarifying questions when quantity or specificity is unclear, and returns structured entries that land in the Zustand store.
 
-It does **not** track water (stripped pre-LLM). It does not log the coach's own questions as food entries.
+It does **not** track water (stripped pre-LLM). It does not log the coach's own questions as food entries. It does not treat verification questions as correction requests.
 
 ---
 
@@ -17,14 +17,16 @@ It does **not** track water (stripped pre-LLM). It does not log the coach's own 
 ```
 User input (text or voice)
   ↓ CoachRail.tsx: submit()
+      ↓ build logSummary from store entries ("elaichi banana (60 kcal), ...")
+      ↓ build ctx: CoachContext (totals + logSummary + history)
   ↓ lib/coach.ts: callCoach(text, ctx)  — client helper
   ↓ POST /api/coach                     — Next.js route
       ↓ stripWater(text)                — pre-LLM preprocessing
-      ↓ buildUserTurn(cleanedText, ctx) — inject context
+      ↓ buildUserTurn(cleanedText, ctx) — inject context + Today's log
       ↓ Gemini API (gemini-flash-lite-latest)
       ↓ parseJson() → normalize()
   ↓ CoachResponse returned to CoachRail
-  ↓ correction? → removeEntry(lastAddedIds) before addEntries()
+  ↓ correction? → name-based lookup via correctionTargets[] before addEntries()
   ↓ entries appended to store → Supabase fire-and-forget sync
 ```
 
@@ -38,7 +40,8 @@ User input (text or voice)
 | `lib/coach.ts` | Client: callCoach wrapper, localFallback |
 | `lib/types.ts` | CoachEntry, CoachResponse, CoachContext interfaces |
 | `app/components/CoachRail.tsx` | UI: input, message thread, correction mechanism |
-| `lib/store.ts` | addEntries, removeEntry, pushMessage |
+| `lib/store.ts` | addEntries, removeEntry, pushMessage, Supabase sync |
+| `middleware.ts` | Supabase SSR session refresh (JWT) |
 | `.env.local` | GEMINI_API_KEY, GEMINI_MODEL |
 
 ---
@@ -53,7 +56,8 @@ Every Gemini response is parsed into this shape (defined in `lib/types.ts:CoachR
   question: string,              // shown to user when needsClarification
   entries: CoachEntry[],         // zero or more items to log
   reply: string,                 // warm acknowledgement or question answer
-  correction: boolean,           // true → remove lastAddedIds before logging
+  correction: boolean,           // true → remove targets before logging
+  correctionTargets: string[],   // ALL entry names to remove (exact names from Today's log)
 }
 
 CoachEntry {
@@ -67,7 +71,7 @@ CoachEntry {
 }
 ```
 
-`normalize()` in route.ts enforces this shape on whatever Gemini returns — coerces types, clamps negatives, strips pure-water entries.
+`normalize()` in route.ts enforces this shape on whatever Gemini returns — coerces types, clamps negatives, strips pure-water entries, ensures `correctionTargets` is always an array.
 
 ---
 
@@ -86,10 +90,30 @@ Built in `CoachRail.tsx:submit()`, sent as `ctx` in the POST body:
   protein:       number,   // grams consumed today
   proteinTarget: number,   // grams target
   history:       string,   // last 6 messages, format "User: … / Coach: …"
+  logSummary:    string,   // "elaichi banana (60 kcal), walnuts (52 kcal)"
 }
 ```
 
-`history` is the last 6 store messages joined with newlines — gives the LLM enough context for corrections ("I meant yelakki") without blowing the prompt.
+`history` is the last 6 store messages — gives the LLM context for corrections without blowing the prompt.
+
+`logSummary` is the **exact names and kcal of every entry currently in the store**, joined with commas. This is what the LLM copies verbatim into `correctionTargets` so the client can do a reliable name-based lookup. Built in `CoachRail.tsx:submit()`:
+
+```javascript
+const logSummary = state.entries.length > 0
+  ? state.entries.map(e => `${e.name} (${e.kcal} kcal)`).join(', ')
+  : 'empty';
+```
+
+Both are injected into the user turn via `buildUserTurn()`:
+
+```
+Goal "Weight loss": 1600 kcal/day net. Today: eaten 120 kcal, burned 0 kcal, net 120 kcal, protein 0g / 120g.
+Today's log: elaichi banana (60 kcal), elaichi banana (60 kcal)
+Recent conversation:
+User: two elaichi bananas
+Coach: Logged! Two elaichi bananas at 60 kcal each, 120 kcal total.
+User: "actually those were regular bananas"
+```
 
 ---
 
@@ -144,11 +168,11 @@ Before logging any food, confirm:
 - Vague term ("some", "a bowl") → offer 2–3 practical reference sizes.
 - User unsure → accept best guess. Never block indefinitely over precision.
 
-**b) SPECIFICITY** — If the food name is too generic (variety/type/size/prep would meaningfully change kcal), ask which it is. Apply to **any food** — not food-specific rules.
+**b) SPECIFICITY** — When in doubt, ask. If size, variety, type, or preparation could meaningfully change the calorie count, always ask — do not assume. Examples: a walnut (small/medium/large), a date (Medjool/Ajwa/dried), a banana (regular/elaichi). **Default to asking rather than guessing.**
 
 Ask ONE question covering all missing info together.
 
-**Why:** Without this, the LLM logged unspecified "bananas" using standard banana calories when yelakki/elaichi bananas are ~33% fewer kcal. Also blocked logging when users said "I'm not sure exactly" — rule now explicitly says accept best guesses.
+**Why:** Without this, the LLM logged unspecified "bananas" using standard banana calories when yelakki/elaichi bananas are ~33% fewer kcal. Also blocked logging when users said "I'm not sure exactly" — rule now explicitly says accept best guesses. The "default to asking" line was added after the LLM logged "one walnut" without asking for size.
 
 **Important:** RULE 5 overrides RULE 2 for corrections (see below).
 
@@ -158,32 +182,41 @@ Ask ONE question covering all missing info together.
 USDA anchors baked into the prompt:
 - 1 Medjool date = 66 kcal
 - 1 small dried date = 20 kcal
+- 1 Ajwa date (small) = 40 kcal
 - 1 large egg = 72 kcal
 - 1 cup cooked white rice = 206 kcal
 - 1 medium banana = 89 kcal
 - 1 yelakki/elaichi/small Indian banana = 60 kcal
 - 100 g chicken breast = 165 kcal
 - 1 slice bread = 79 kcal
+- 1 small walnut half = 13 kcal
+- 1 medium walnut half = 20 kcal
 
-**Why:** LLM was computing per-banana kcal correctly (60) but then applying that total to each of two entries instead of splitting. Explicit anchors stabilize output.
-
----
-
-### RULE 4 — USER QUESTIONS
-If the user is questioning/disputing a logged entry ("how is that X calories?", "that seems wrong"), return `entries: []` and address the concern in `reply`. Do not log anything.
-
-**Why:** Without this, the LLM logged the user's question as a food entry (e.g. "how many calories is that?" → logged as 0 kcal food).
+**Why:** LLM was computing per-banana kcal correctly (60) but then applying that total to each of two entries instead of splitting. Ajwa date and walnut sizes added after user reported those foods being logged incorrectly.
 
 ---
 
-### RULE 5 — CORRECTIONS
-If the user is clarifying/correcting a previously logged food (e.g. "I meant yelakki", "actually it was 3 not 2"), return corrected entries with `correction: true`.
+### RULE 4 — USER QUESTIONS & VERIFICATION
+If the user is questioning, verifying, or asking about what was logged — including "have you logged X or Y?", "did you log it as medium or small?", "what size did you log?", "how is that X calories?", "that seems wrong" — return `entries: []` and address the concern in `reply`. Do NOT log, correct, or change anything. A question is **never** a correction request. Only act under RULE 5 when the user explicitly says to change or correct something.
 
-**IMPORTANT:** If the user corrects type/name without restating quantity, infer the quantity from the most recent logged item in conversation history. Do NOT ask for quantity again — this overrides RULE 2 for corrections.
+**Why:** Two failure modes were fixed here: (1) LLM logged the user's question as a food entry (e.g. "how many calories is that?" → 0 kcal food). (2) LLM treated "have you logged X or Y?" as a correction request and removed entries.
 
-**Why:** Two bugs prompted this rule:
+---
+
+### RULE 5 — CORRECTIONS & DELETIONS
+Two sub-cases, both use `correction:true`:
+
+**Correction (replace):** User says they logged something wrong ("I meant yelakki", "actually 3 not 2", "those were Medjool") → return corrected entries with `correction:true`, `correctionTargets:[all names to remove from Today's log]`, `entries:[corrected items]`. Infer quantity from Today's log if not re-stated — do NOT ask (overrides RULE 2).
+
+**Deletion (pure remove):** User says to remove something ("remove the dates", "delete the walnut", "I didn't have X after all") → return `correction:true`, `correctionTargets:[all matching names from Today's log]`, `entries:[]` — pure removal, nothing added.
+
+All other cases: `correction:false`, `correctionTargets:[]`.
+
+**Why:** Three bugs drove this rule's evolution:
 1. "I meant yelakki bananas" appended new entries instead of replacing → needed `correction: true` flag.
-2. After saying "correction: true", LLM still asked "how many?" because RULE 2 fired — needed explicit RULE 5 override.
+2. After `correction: true`, LLM still asked "how many?" because RULE 2 fired → needed RULE 5 override.
+3. Correcting "3 Ajwa dates" left one entry behind — single string → upgraded to `correctionTargets: string[]`.
+4. "Remove the dates" did nothing — RULE 5 didn't cover deletion, and CoachRail skipped removal logic when `entries:[]` → added deletion sub-case to RULE 5 and moved removal block outside the `entries.length > 0` guard.
 
 ---
 
@@ -211,28 +244,43 @@ If the user is clarifying/correcting a previously logged food (e.g. "I meant yel
 
 How the app replaces previously logged entries when the user corrects themselves.
 
-**In `CoachRail.tsx`:**
+**Removal step — always runs first when `correction:true`:**
 
 ```javascript
-const lastAddedIdsRef = useRef<number[]>([]);
-
-// After addEntries():
-const entriesBefore = useStore.getState().entries;
-addEntries(data.entries.map(e => ({ ...e, source })));
-const entriesAfter = useStore.getState().entries;
-lastAddedIdsRef.current = entriesAfter.slice(entriesBefore.length).map(e => e.id);
-
-// When correction:true:
-if (data.correction && lastAddedIdsRef.current.length > 0) {
-  lastAddedIdsRef.current.forEach(id => removeEntry(id));
+if (data.correction) {
+  const targets = (data.correctionTargets || [])
+    .map(t => t.toLowerCase().trim()).filter(Boolean);
+  if (targets.length > 0) {
+    const current = useStore.getState().entries;
+    const toRemove = current.filter(e => {
+      const eName = e.name.toLowerCase();
+      return targets.some(t => eName === t || eName.includes(t) || t.includes(eName));
+    });
+    toRemove.forEach(e => removeEntry(e.id));
+  } else if (lastAddedIdsRef.current.length > 0) {
+    lastAddedIdsRef.current.forEach(id => removeEntry(id));
+  }
+}
+if (data.entries.length > 0) {
+  // add replacement entries and update lastAddedIdsRef
 }
 ```
 
-**End-to-end flow:**
-1. User logs "two bananas" → IDs [5, 6] stored in `lastAddedIdsRef`.
-2. User says "I meant yelakki" → Gemini returns `correction: true`, 2 yelakki entries.
-3. CoachRail removes IDs [5, 6], then adds the yelakki entries → IDs [7, 8] now in `lastAddedIdsRef`.
-4. If the user doesn't log anything in between (clarification question with `entries: []`), `lastAddedIdsRef` is NOT updated — a follow-up correction still works.
+Removal runs regardless of whether `entries` is empty — this is what makes pure deletion work (coach says "remove X" → `correction:true`, `entries:[]` → targets removed, nothing added).
+
+The LLM copies exact entry names from `Today's log` into `correctionTargets`. The three-way match (`===`, `includes`, `t.includes(eName)`) handles minor name drift across turns.
+
+**End-to-end — correction (replace):**
+1. User logs "two Ajwa dates" → IDs [5, 6] in `lastAddedIdsRef`.
+2. User says "actually those were Medjool" → Gemini: `correction:true`, `correctionTargets:["Ajwa date","Ajwa date"]`, 2 Medjool entries.
+3. CoachRail removes both Ajwa entries by name, adds 2 Medjool entries.
+
+**End-to-end — deletion (pure remove):**
+1. User logs "three Ajwa dates" → IDs [5, 6, 7].
+2. User says "remove the dates" → Gemini: `correction:true`, `correctionTargets:["Ajwa date","Ajwa date","Ajwa date"]`, `entries:[]`.
+3. CoachRail removes all three by name, adds nothing.
+
+**Fallback:** If `correctionTargets` is empty (shouldn't happen), falls back to `lastAddedIdsRef`.
 
 ---
 
@@ -242,75 +290,193 @@ if (data.correction && lastAddedIdsRef.current.length > 0) {
 
 | Condition | Behavior |
 |---|---|
-| Text matches activity keywords | Log an activity entry (7 kcal/min estimate), `correction: false` |
-| Text has no quantity signals | Ask for quantity, `needsClarification: true`, `correction: false` |
-| Otherwise | "Something went wrong, try again", `needsClarification: true`, `correction: false` |
+| Text matches activity keywords | Log an activity entry (7 kcal/min estimate), `correction: false`, `correctionTargets: []` |
+| Text has no quantity signals | Ask for quantity, `needsClarification: true`, `correction: false`, `correctionTargets: []` |
+| Otherwise | "Something went wrong, try again", `needsClarification: true`, `correction: false`, `correctionTargets: []` |
 
-All three branches include `correction: false` — required field (TypeScript strict). Missing it breaks Vercel builds.
+All three branches include **both** `correction: false` and `correctionTargets: []` — both are required fields (TypeScript strict). Missing either breaks Vercel builds.
+
+---
+
+## Supabase schema
+
+Tables created in Supabase SQL editor. RLS enabled on all four tables.
+
+```sql
+-- profiles (one row per user)
+create table profiles (
+  id uuid primary key references auth.users,
+  name text, goal_type text, water numeric, steps int,
+  sex text, activity text, pace text, age int,
+  weight_kg numeric, height_cm numeric, target_weight_kg numeric,
+  tracking jsonb, updated_at timestamptz
+);
+alter table profiles enable row level security;
+create policy "own profile" on profiles using (auth.uid() = id);
+
+-- goals (up to 3 rows per user: lose/maintain/gain)
+create table goals (
+  id bigserial primary key,
+  user_id uuid references auth.users not null,
+  type text, title text, "desc" text, target int,
+  protein_target int, carb_target int, fat_target int,
+  unique(user_id, type)
+);
+alter table goals enable row level security;
+create policy "own goals" on goals using (auth.uid() = user_id);
+
+-- entries (daily food/activity logs)
+create table entries (
+  id bigserial primary key,
+  user_id uuid references auth.users not null,
+  entry_date date not null,
+  local_id int, time text, type text, name text,
+  kcal int, protein int, carbs int, fat int,
+  duration_min int, source text
+);
+alter table entries enable row level security;
+create policy "own entries" on entries using (auth.uid() = user_id);
+
+-- messages (daily coach conversation)
+create table messages (
+  pk bigserial primary key,
+  user_id uuid references auth.users not null,
+  message_date date not null,
+  role text, text text
+);
+alter table messages enable row level security;
+create policy "own messages" on messages using (auth.uid() = user_id);
+```
+
+**Note:** `"desc"` must be quoted — it's a reserved SQL keyword.
+
+### Supabase sync strategy
+All DB writes are fire-and-forget from `lib/store.ts`. Errors are logged via `console.error('[tempo] ...')` but never surface to the user. `dbReplaceEntries` does a full delete-then-insert for today's entries on every change — simple, correct, not optimized for high volume.
+
+### Data load on login
+`initFromSupabase()` in `store.ts` runs after Google OAuth. It reads `profiles`, `goals`, `entries` (today only), and `messages` (today only) in parallel. Returning users go straight to `screen: 'today'`; new users (no profile row) start onboarding.
+
+---
+
+## Middleware
+
+`middleware.ts` refreshes the Supabase JWT on every request using `createServerClient` + `await supabase.auth.getUser()`. This is **required** for Supabase SSR — without it, server-side auth tokens expire and data reads fail silently.
+
+The previous version was a no-op (`return NextResponse.next()`) which caused data to not persist across page reloads for returning users.
 
 ---
 
 ## Changelog
 
-Listed newest-first. Each entry links to the real-world bug that drove the change.
+Listed newest-first.
+
+### Session 2026-07b — coach deletion, quick-delete UI, editable macros
+
+#### Coach can delete entries ("remove the dates", "I didn't have X")
+**Bug:** Asking the coach to "remove" or "delete" a logged entry did nothing — RULE 5 only covered corrections (replace), not pure deletions. Also `CoachRail` skipped the entire removal block when `entries: []`, so even if the LLM had returned a deletion response it wouldn't have worked.  
+**Fix:** Extended RULE 5 to cover deletion requests: returns `correction:true`, `correctionTargets:[matching names]`, `entries:[]`. Fixed `CoachRail` to run the removal logic whenever `correction:true`, regardless of whether `entries` is empty — pure deletion now removes the targets and adds nothing.
+
+#### Quick-delete trash icon on log rows (Today.tsx)
+**Bug:** Removing multiple same-name entries required opening the SlideOver for each one individually.  
+**Fix:** Added a trash icon to each `LogRow` that appears on hover. Click fires `removeEntry` directly — `stopPropagation` prevents the SlideOver from opening. No prop threading needed; uses the store directly.
+
+#### Editable protein / carbs / fat in SlideOver
+**Bug:** Macro values (protein, carbs, fat) were display-only bars — only kcal was editable.  
+**Fix:** Replaced static gram values with inline inputs identical in style to the kcal input. Each input calls `updateEntry` on change with the field name. Bar width stays live (recalculates from current entry values on re-render). Edit hint line updated to "Click any number to edit it."
+
+### Session 2026-07 — correction array, logSummary, verification questions, Supabase
+
+#### `correctionTargets` array (replaces `correctionTarget` string)
+**Bug:** Correcting "3 Ajwa dates" (three separate entries) still left one entry behind — single `correctionTarget` string only removed the first match.  
+**Fix:** Changed `CoachResponse.correctionTarget: string` → `correctionTargets: string[]`. LLM now lists ALL entry names to remove. `normalize()` coerces to array. Correction logic in `CoachRail` iterates all targets. `localFallback` updated to include `correctionTargets: []`.
+
+#### `logSummary` in CoachContext
+**Bug:** LLM was guessing entry names from conversation history, which differed from actual stored names, causing `correctionTargets` lookup to miss.  
+**Fix:** Added `logSummary: string` to `CoachContext` — exact stored entry names with kcal. Passed to LLM in `buildUserTurn` as `Today's log: ...`. LLM now copies names verbatim.
+
+#### RULE 4 — verification questions
+**Bug:** "Have you logged X or Y?" treated as a correction request — LLM removed entries when user was just verifying.  
+**Fix:** RULE 4 explicitly lists verification question patterns and clarifies these are never corrections.
+
+#### RULE 2 — "default to asking rather than guessing"
+**Bug:** "Add one walnut" logged immediately without asking size.  
+**Fix:** Added explicit "Default to asking rather than guessing" to RULE 2b, with walnut as an example.
+
+#### RULE 3 — Ajwa date + walnut size anchors
+**Fix:** Added `1 Ajwa date (small) = 40 kcal`, `1 small walnut half = 13 kcal`, `1 medium walnut half = 20 kcal`.
+
+#### Middleware fix — session persistence
+**Bug:** Returning users saw blank data on page reload — JWT had expired, Supabase reads silently returned null.  
+**Fix:** Replaced no-op middleware with proper JWT refresh using `createServerClient` + `getUser()`.
+
+#### Supabase schema + RLS
+**Fix:** Created all four tables (`profiles`, `goals`, `entries`, `messages`) with RLS. Previously no tables existed — all DB writes silently failed.
+
+#### DB error logging in store.ts
+**Fix:** All four DB helpers now log errors via `console.error('[tempo] ...]')`. `dbReplaceEntries` returns early if delete fails.
+
+---
+
+### Pre-2026-07 changelog
 
 ### `beb8bea` — Estimate-friendly quantity clarification
 **Bug:** Rule 2 blocked logging indefinitely when user said "I'm not sure of the exact amount."  
-**Fix:** RULE 2 now explicitly says: if user is unsure, accept best guess and log. Offer 2–3 practical reference sizes for vague terms. Never block indefinitely.
+**Fix:** RULE 2 now says: if user is unsure, accept best guess and log.
 
 ### `6c8ce67` — Refactor RULE 2 to generic principle
-**Bug:** RULE 2 had banana-specific wording ("if user says 'banana'...") — violating the principle that rules should be generic instructions applicable to any food.  
-**Fix:** Rewrote RULE 2 as a generic behavioral principle: ask about quantity AND specificity for any food where they're ambiguous, not just named foods.
+**Bug:** RULE 2 had banana-specific wording — violating generic instruction principle.  
+**Fix:** Rewrote RULE 2 as a generic behavioral principle applicable to any food.
 
 ### `5d28778` — Ask banana variety before logging + fix yelakki calorie
-**Bug:** LLM logged generic "banana" (89 kcal) when user said just "banana" — should have asked Medjool/dried/yelakki. Also computed 2×60=120 and applied that as per-entry kcal.  
+**Bug:** LLM logged generic "banana" (89 kcal) without asking variety. Computed 2×60=120 and applied as per-entry kcal.  
 **Fix:** Added specificity check to RULE 2; added per-banana USDA anchor to RULE 3.
 
 ### `91ec90b` — Corrections infer quantity from history
-**Bug:** After user corrected "banana → yelakki", LLM asked "how many?" because RULE 2 fired.  
-**Fix:** RULE 5 explicitly overrides RULE 2 for corrections: infer quantity from most recent logged item in history.
+**Bug:** After "banana → yelakki", LLM asked "how many?" because RULE 2 fired.  
+**Fix:** RULE 5 overrides RULE 2: infer quantity from most recent logged item.
 
 ### `30c300b` — Fix build: add correction field to localFallback
-**Bug:** Added `correction: boolean` as required field to `CoachResponse` but missed 3 return statements in `lib/coach.ts:localFallback`. TypeScript strict mode caught it at Vercel build time.  
+**Bug:** Added `correction: boolean` as required field but missed 3 return statements in `localFallback`. TypeScript strict caught it at Vercel build.  
 **Fix:** Added `correction: false` to all 3 localFallback return statements.
 
 ### `6672328` — Correction mode replaces instead of appending
-**Bug:** "I meant yelakki bananas" appended 2 new yelakki entries instead of replacing the 2 banana entries.  
-**Fix:** Added `correction: boolean` to CoachResponse; added `lastAddedIdsRef` + removeEntry logic in CoachRail; added RULE 5 to system prompt.
+**Bug:** "I meant yelakki bananas" appended 2 new entries instead of replacing.  
+**Fix:** Added `correction: boolean` to CoachResponse; added `lastAddedIdsRef` + removeEntry logic; added RULE 5.
 
 ### `c86ce74` — Remove dangling connector after stripWater
 **Bug:** "I had two bananas with 600ml water" → stripped to "I had two bananas with" → LLM asked "with what?".  
 **Fix:** Post-strip regex removes trailing `with/and/plus/along with/alongside`.
 
 ### `b387a35` — Switch to gemini-flash-lite-latest + retry on 503
-**Bug:** `gemini-2.5-flash-lite` returned persistent 503s — model overloaded on free tier.  
-**Fix:** Switched to `gemini-flash-lite-latest` (stable free-tier alias). Added 503 retry with 500ms delay.
+**Bug:** `gemini-2.5-flash-lite` returned persistent 503s on free tier.  
+**Fix:** Switched to `gemini-flash-lite-latest`. Added 503 retry with 500ms delay.
 
 ### `f6b97ce` — Upgrade to gemini-2.5-flash-lite (later reverted)
-**Bug:** `gemini-1.5-flash` returned 404 — model removed from v1beta API.  
-**Fix attempted:** Upgraded to `gemini-2.5-flash-lite`. Later caused 503s (see above).
+**Bug:** `gemini-1.5-flash` returned 404 — removed from v1beta API.  
+**Fix attempted:** Upgraded to `gemini-2.5-flash-lite`. Later caused 503s.
 
 ### `28d26b7` — Surface API error instead of hardcoded 400 kcal fallback
-**Bug:** localFallback was returning a hardcoded 400 kcal food entry when no matching condition hit.  
-**Fix:** Changed final fallback to surface "Something went wrong, try again" with needsClarification:true.
+**Bug:** localFallback returned a hardcoded 400 kcal food entry as the final else branch.  
+**Fix:** Changed to "Something went wrong, try again" with `needsClarification: true`.
 
 ### `387df9e` — Strip water pre-LLM with atomic regex
-**Bug:** "600ml water and two dates" → LLM logged water as a 0 kcal entry (bundled with dates).  
-**Fix:** `stripWater()` removes water phrases before text reaches Gemini. Also handles coconut water guard.
+**Bug:** "600ml water and two dates" → LLM logged water as a 0 kcal entry.  
+**Fix:** `stripWater()` removes water phrases before text reaches Gemini. Coconut water guarded.
 
 ### `ccb6f7a` — System instruction + code-level water filter
-**Bug:** Earlier fix added "water = 0 kcal" to prompt but LLM still occasionally bundled water.  
-**Fix:** Moved water logic from prompt rule to code-level preprocessing (stripWater). Added ZERO_CAL_ENTRY backstop filter in normalize().
+**Bug:** Earlier prompt-level fix still occasionally let water through.  
+**Fix:** Moved water logic to `stripWater()` preprocessing. Added `ZERO_CAL_ENTRY` backstop in `normalize()`.
 
 ### `8bf6e13` — Initial fix: water logged as calories, questions as food
-**Bug:** "I drank 600ml water" → logged as 400 kcal. "How many calories is that?" → logged as food entry.  
+**Bug:** "I drank 600ml water" → logged as 400 kcal. "How many calories is that?" → logged as food.  
 **Fix:** Added water=0 rule and question-detection rule to prompt.
 
 ---
 
 ## Known limitations
 
-- `lastAddedIdsRef` is session-scoped (React ref). If the user refreshes mid-conversation and then tries to correct, the previous entries are gone from the ref — correction will add new entries instead of replacing. Not a critical bug (user can delete manually) but worth noting.
+- `lastAddedIdsRef` is session-scoped (React ref). If the user refreshes mid-conversation and then corrects, the ref is empty — correction falls back to name-based `correctionTargets` lookup, which still works as long as entries are in the store (they will be after the middleware fix).
 - `history` is capped at 6 messages. Very long back-and-forth before a correction might lose the original logged quantity, causing RULE 5's quantity inference to fail.
 - Free-tier Gemini has no guaranteed SLA. The 503 retry helps transient spikes but sustained overload will fall through to `localFallback`.
 - `gemini-flash-lite-latest` is an alias — Google may point it at a different model version without notice. If behavior regresses suddenly, check Gemini changelog.
+- `dbReplaceEntries` does a full delete-then-insert on every entry change. Fine for light use; not optimized for high frequency logging.

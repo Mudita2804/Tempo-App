@@ -77,34 +77,30 @@ export function CoachRail() {
       if (data.needsClarification) {
         pushMessage({ role: 'coach', text: data.question || 'Roughly how much did you have?' });
       } else {
-        if (data.entries.length > 0) {
-          if (data.correction) {
-            // correctionTargets lists every entry name (from Today's log) to remove.
-            // Using an array handles the case where the same food was logged multiple
-            // times under slightly different names across separate turns.
-            const targets = (data.correctionTargets || [])
-              .map(t => t.toLowerCase().trim())
-              .filter(Boolean);
-            if (targets.length > 0) {
-              const current = useStore.getState().entries;
-              const toRemove = current.filter(e => {
-                const eName = e.name.toLowerCase();
-                return targets.some(t => eName === t || eName.includes(t) || t.includes(eName));
-              });
-              toRemove.forEach(e => removeEntry(e.id));
-            } else if (lastAddedIdsRef.current.length > 0) {
-              // Fallback: remove whatever was most recently logged
-              lastAddedIdsRef.current.forEach(id => removeEntry(id));
-            }
+        // Run removal first — applies for both corrections (replace) and deletions (entries:[])
+        if (data.correction) {
+          const targets = (data.correctionTargets || [])
+            .map(t => t.toLowerCase().trim())
+            .filter(Boolean);
+          if (targets.length > 0) {
+            const current = useStore.getState().entries;
+            const toRemove = current.filter(e => {
+              const eName = e.name.toLowerCase();
+              return targets.some(t => eName === t || eName.includes(t) || t.includes(eName));
+            });
+            toRemove.forEach(e => removeEntry(e.id));
+          } else if (lastAddedIdsRef.current.length > 0) {
+            // Fallback: remove whatever was most recently logged
+            lastAddedIdsRef.current.forEach(id => removeEntry(id));
           }
+        }
+        if (data.entries.length > 0) {
           const entriesBefore = useStore.getState().entries;
           addEntries(data.entries.map(e => ({ ...e, source })));
           const entriesAfter = useStore.getState().entries;
           lastAddedIdsRef.current = entriesAfter
             .slice(entriesBefore.length)
             .map(e => e.id);
-        } else {
-          // No entries logged — don't touch lastAddedIds so a follow-up correction still works
         }
         if (data.reply) pushMessage({ role: 'coach', text: data.reply });
       }
