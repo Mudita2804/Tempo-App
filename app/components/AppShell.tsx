@@ -150,7 +150,7 @@ export function AppShell() {
         )}
 
         {/* Main content */}
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden', position: 'relative' }}>
           {screen === 'today' && <Today onSelectEntry={setSelectedId} />}
           {screen === 'trends'   && <Trends />}
           {screen === 'foods'    && <Foods onSelectEntry={setSelectedId} />}
@@ -237,8 +237,8 @@ export function AppShell() {
         </button>
       </div>
 
-      {/* Main content */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      {/* Main content — must be a flex column so children's flex:1 + overflowY:auto works */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {screen === 'today'    && <Today onSelectEntry={setSelectedId} />}
         {screen === 'trends'   && <Trends />}
         {screen === 'foods'    && <Foods onSelectEntry={setSelectedId} />}
