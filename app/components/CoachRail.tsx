@@ -11,10 +11,11 @@ export function CoachRail() {
   const [thinking,  setThinking]    = useState(false);
   const [micError,  setMicError]    = useState<string | null>(null);
 
-  const messages    = useStore(s => s.messages);
-  const addEntries  = useStore(s => s.addEntries);
-  const removeEntry = useStore(s => s.removeEntry);
-  const pushMessage = useStore(s => s.pushMessage);
+  const messages       = useStore(s => s.messages);
+  const addEntries     = useStore(s => s.addEntries);
+  const replaceEntries = useStore(s => s.replaceEntries);
+  const removeEntry    = useStore(s => s.removeEntry);
+  const pushMessage    = useStore(s => s.pushMessage);
 
   // Track IDs of the last coach-logged entries so corrections can replace them
   const lastAddedIdsRef = useRef<number[]>([]);
@@ -77,24 +78,32 @@ export function CoachRail() {
       if (data.needsClarification) {
         pushMessage({ role: 'coach', text: data.question || 'Roughly how much did you have?' });
       } else {
-        // Run removal first — applies for both corrections (replace) and deletions (entries:[])
         if (data.correction) {
+          // Corrections and deletions: find IDs to remove, then do one atomic
+          // replaceEntries call so there is never more than one dbReplaceEntries
+          // in-flight. Multiple fire-and-forget DB calls racing each other was
+          // causing all existing entries to be duplicated in Supabase.
           const targets = (data.correctionTargets || [])
             .map(t => t.toLowerCase().trim())
             .filter(Boolean);
+          const current = useStore.getState().entries;
+          let removeIds: number[];
           if (targets.length > 0) {
-            const current = useStore.getState().entries;
-            const toRemove = current.filter(e => {
-              const eName = e.name.toLowerCase();
-              return targets.some(t => eName === t || eName.includes(t) || t.includes(eName));
-            });
-            toRemove.forEach(e => removeEntry(e.id));
-          } else if (lastAddedIdsRef.current.length > 0) {
-            // Fallback: remove whatever was most recently logged
-            lastAddedIdsRef.current.forEach(id => removeEntry(id));
+            removeIds = current
+              .filter(e => {
+                const eName = e.name.toLowerCase();
+                return targets.some(t => eName === t || eName.includes(t) || t.includes(eName));
+              })
+              .map(e => e.id);
+          } else {
+            removeIds = [...lastAddedIdsRef.current];
           }
-        }
-        if (data.entries.length > 0) {
+          const newEntries = data.entries.map(e => ({ ...e, source }));
+          replaceEntries(removeIds, newEntries);
+          lastAddedIdsRef.current = newEntries.length > 0
+            ? useStore.getState().entries.slice(-newEntries.length).map(e => e.id)
+            : [];
+        } else if (data.entries.length > 0) {
           const entriesBefore = useStore.getState().entries;
           addEntries(data.entries.map(e => ({ ...e, source })));
           const entriesAfter = useStore.getState().entries;

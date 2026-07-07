@@ -370,6 +370,16 @@ The previous version was a no-op (`return NextResponse.next()`) which caused dat
 
 Listed newest-first.
 
+### Session 2026-07c — fix duplicate entries on correction
+
+#### Race condition: all entries duplicated after a correction
+**Bug:** Corrections triggered N+1 concurrent `dbReplaceEntries` calls: one per `removeEntry(id)` call, plus one from `addEntries`. Each call does DELETE-then-INSERT. When two calls race, both DELETEs succeed, then both INSERTs fire — leaving the pre-removal entries in Supabase twice. On next page load, `initFromSupabase` reads the doubled rows and shows all entries duplicated.
+
+**Fix:**
+1. Added `replaceEntries(removeIds, newEntries)` action to `store.ts` — atomically filters out removed entries and appends new ones in a **single** Zustand `set` call → single `dbReplaceEntries` call. No concurrent writes possible.
+2. Rewrote CoachRail correction/deletion block to call `replaceEntries` instead of looping `removeEntry` + calling `addEntries` separately.
+3. Added dedup on load in `initFromSupabase`: filters entries by `local_id` uniqueness before mapping, so any existing Supabase duplicates are silently ignored on next load.
+
 ### Session 2026-07b — coach deletion, quick-delete UI, editable macros
 
 #### Coach can delete entries ("remove the dates", "I didn't have X")

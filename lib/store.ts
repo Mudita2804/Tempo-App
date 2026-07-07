@@ -154,6 +154,7 @@ interface State {
   setProfile: (patch: Partial<Profile>) => void;
 
   addEntries: (entries: Array<Omit<Entry, 'id' | 'time'>>, time?: string) => void;
+  replaceEntries: (removeIds: number[], newEntries: Array<Omit<Entry, 'id' | 'time'>>, time?: string) => void;
   updateEntry: (id: number, patch: Partial<Entry>) => void;
   removeEntry: (id: number) => void;
   pushMessage: (m: Message) => void;
@@ -245,18 +246,26 @@ export const useStore = create<State>((set, get) => ({
           }))
         : DEFAULT_GOALS;
 
-      const entries: Entry[] = (entriesRes.data ?? []).map((e) => ({
-        id: e.local_id,
-        time: e.time,
-        type: e.type,
-        name: e.name,
-        kcal: e.kcal,
-        protein: e.protein,
-        carbs: e.carbs,
-        fat: e.fat,
-        durationMin: e.duration_min,
-        source: e.source as Source,
-      }));
+      // Deduplicate by local_id — guards against race-condition double-inserts in Supabase
+      const seenIds = new Set<number>();
+      const entries: Entry[] = (entriesRes.data ?? [])
+        .filter(e => {
+          if (seenIds.has(e.local_id)) return false;
+          seenIds.add(e.local_id);
+          return true;
+        })
+        .map((e) => ({
+          id: e.local_id,
+          time: e.time,
+          type: e.type,
+          name: e.name,
+          kcal: e.kcal,
+          protein: e.protein,
+          carbs: e.carbs,
+          fat: e.fat,
+          durationMin: e.duration_min,
+          source: e.source as Source,
+        }));
 
       const messages: Message[] = messagesRes.data?.length
         ? messagesRes.data.map((m) => ({ role: m.role as Message['role'], text: m.text }))
@@ -354,6 +363,20 @@ export const useStore = create<State>((set, get) => ({
       const newEntries = [...s.entries, ...mapped];
       if (s.userId && s.initialized) void dbReplaceEntries(s.userId, newEntries);
       return { entries: newEntries, nextId: id };
+    }),
+
+  // Atomically removes entries by id and adds new ones in a single DB call.
+  // Use this for corrections/deletions to avoid race conditions from multiple
+  // fire-and-forget dbReplaceEntries calls landing out of order.
+  replaceEntries: (removeIds, newEntries, time = hhmm()) =>
+    set((s) => {
+      const removeSet = new Set(removeIds);
+      const kept = s.entries.filter(e => !removeSet.has(e.id));
+      let id = s.nextId;
+      const added: Entry[] = newEntries.map((e) => ({ ...e, id: id++, time }));
+      const entries = [...kept, ...added];
+      if (s.userId && s.initialized) void dbReplaceEntries(s.userId, entries);
+      return { entries, nextId: id };
     }),
 
   updateEntry: (id, patch) =>
