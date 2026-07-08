@@ -266,8 +266,7 @@ const ACTIVITY_DEFS: Array<{ value: Activity; label: string; sub: string }> = [
   { value: 'sedentary', label: 'Sedentary',   sub: 'Little / no exercise'  },
   { value: 'light',     label: 'Light',        sub: '1–2 days a week'      },
   { value: 'moderate',  label: 'Moderate',     sub: '3–4 days a week'      },
-  { value: 'active',    label: 'Active',       sub: '5–6 days a week'      },
-  { value: 'very',      label: 'Very active',  sub: 'Daily / physical job' },
+  { value: 'active',    label: 'Active',       sub: '5–7 days a week'      },
 ];
 
 const PACE_DEFS: Array<{ value: Pace; label: string; sub: string }> = [
@@ -349,7 +348,7 @@ function StepQuestions() {
       {/* Weekly pace */}
       {showPace && (
         <>
-          <div style={sectionLabelStyle}>Weekly pace</div>
+          <div style={sectionLabelStyle}>How fast do you want to reach your goal?</div>
           <div style={{ display: 'flex', gap: 10, marginBottom: 26 }}>
             {PACE_DEFS.map(({ value, label, sub }) => {
               const sel = pace === value;

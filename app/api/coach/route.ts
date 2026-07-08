@@ -122,7 +122,7 @@ RULE 5 — CORRECTIONS & DELETIONS.
   All other cases: correction:false, correctionTargets:[].
 
 For activities: estimate kcal BURNED (positive), macros 0, durationMin if estimable.
-"reply" = 1–2 warm sentences acknowledging what was logged or answering the question.`;
+"reply" = 1–2 warm sentences acknowledging what was logged or answering the question. When logging entries (entries.length > 0), always include the total kcal in the reply, e.g. "Logged! Two eggs and toast — 238 kcal."`;
 
 // ─── User turn ────────────────────────────────────────────────────────────────
 
