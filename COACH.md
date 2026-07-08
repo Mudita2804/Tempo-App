@@ -396,6 +396,19 @@ AppShell mobile:
 
 Listed newest-first.
 
+### Session 2026-07g — delete account feature
+
+#### Delete account (Settings + API route)
+**What:** Users can now delete their account and all data from Settings → Account card. A "Delete account" button sits next to Sign out. Clicking it shows an inline confirmation ("This will delete all your data permanently. Are you sure?") with "Yes, delete everything" and "Cancel". On confirm: calls `DELETE /api/delete-account`, signs out, redirects to `/login`.  
+**How it works:**
+- `app/api/delete-account/route.ts` — server route using the Supabase admin client (`SUPABASE_SERVICE_ROLE_KEY`). Deletes all user rows from `messages` → `entries` → `goals` → `profiles` in order, then calls `admin.auth.admin.deleteUser(userId)` to remove the auth record. Returns 401 if called unauthenticated.
+- `Settings.tsx` — `AccountCard` component extracted from inline JSX; uses `useState` for `confirming`/`deleting`/`error` states. Error message shown inline if the API call fails.
+- `.env.local` + Vercel env vars — `SUPABASE_SERVICE_ROLE_KEY` added to both.  
+**Why:** Users had no way to remove their account or data from the app.  
+**Files:** `app/api/delete-account/route.ts` (new), `Settings.tsx`, `.env.local`.
+
+---
+
 ### Session 2026-07f — activity options, pace label, coach kcal in reply
 
 #### Remove "Very active" activity option
