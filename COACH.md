@@ -396,6 +396,22 @@ AppShell mobile:
 
 Listed newest-first.
 
+### Session 2026-07f — activity options, pace label, coach kcal in reply
+
+#### Remove "Very active" activity option
+**What:** Removed `{ value: 'very', label: 'Very active', sub: 'Daily / physical job' }` from `ACTIVITY_DEFS`. Updated `Active` sub-text from `5–6 days a week` → `5–7 days a week` to cover the full upper range.  
+**Files:** `Onboarding.tsx`.
+
+#### Rename "Weekly pace" heading
+**What:** Changed section label from `Weekly pace` → `How fast do you want to reach your goal?` for clarity.  
+**Files:** `Onboarding.tsx`.
+
+#### Coach reply includes total kcal when logging
+**What:** Updated `reply` instruction in the SYSTEM prompt to require the LLM to include total kcal in its confirmation when entries are logged, e.g. `"Logged! Two large boiled eggs — 144 kcal."`.  
+**Files:** `app/api/coach/route.ts`.
+
+---
+
 ### Session 2026-07e — starter prompts, empty state, onboarding + settings cleanup
 
 #### Starter prompts in CoachRail
