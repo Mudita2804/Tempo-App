@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useStore } from '@/lib/store';
 import { createClient } from '@/lib/supabase/client';
 import { useIsMobile } from '@/lib/hooks';
@@ -168,31 +169,120 @@ export function Settings() {
         </div>
 
         {/* ── Account card ────────────────────────────────────────────────── */}
-        <div style={{
-          background: '#fff', border: '1px solid #ece6dc',
-          borderRadius: 16, padding: 24, marginTop: 20,
-        }}>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Account</div>
+        <AccountCard />
+
+      </div>
+    </div>
+  );
+}
+
+// ─── Account card ─────────────────────────────────────────────────────────────
+
+function AccountCard() {
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleDelete() {
+    setDeleting(true);
+    setError('');
+    try {
+      const res = await fetch('/api/delete-account', { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body.error || 'Something went wrong');
+      }
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      window.location.href = '/login';
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Something went wrong');
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div style={{
+      background: '#fff', border: '1px solid #ece6dc',
+      borderRadius: 16, padding: 24, marginTop: 20,
+    }}>
+      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Account</div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button
+          onClick={async () => {
+            const supabase = createClient();
+            await supabase.auth.signOut();
+            window.location.href = '/login';
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#fbeae3'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#f7f4ef'; }}
+          style={{
+            background: '#f7f4ef', border: '1px solid #ece6dc',
+            color: '#b3502f', fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
+            padding: '10px 18px', borderRadius: 10, cursor: 'pointer',
+            transition: 'background .15s',
+          }}
+        >
+          Sign out
+        </button>
+
+        {!confirming ? (
           <button
-            onClick={async () => {
-              const supabase = createClient();
-              await supabase.auth.signOut();
-              window.location.href = '/login';
-            }}
+            onClick={() => setConfirming(true)}
             onMouseEnter={e => { e.currentTarget.style.background = '#fbeae3'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#f7f4ef'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
             style={{
-              background: '#f7f4ef', border: '1px solid #ece6dc',
+              background: '#fff', border: '1px solid #e8b4a0',
               color: '#b3502f', fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
               padding: '10px 18px', borderRadius: 10, cursor: 'pointer',
               transition: 'background .15s',
             }}
           >
-            Sign out
+            Delete account
           </button>
-        </div>
-
+        ) : (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            background: '#fff8f6', border: '1px solid #e8b4a0',
+            borderRadius: 10, padding: '10px 14px',
+          }}>
+            <span style={{ fontSize: 13.5, color: '#6b3320' }}>
+              This will delete all your data permanently. Are you sure?
+            </span>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              onMouseEnter={e => { e.currentTarget.style.background = '#9b3a22'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#b3502f'; }}
+              style={{
+                background: '#b3502f', border: 'none',
+                color: '#fff', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600,
+                padding: '7px 14px', borderRadius: 8, cursor: deleting ? 'not-allowed' : 'pointer',
+                opacity: deleting ? 0.7 : 1, transition: 'background .15s',
+              }}
+            >
+              {deleting ? 'Deleting…' : 'Yes, delete everything'}
+            </button>
+            <button
+              onClick={() => { setConfirming(false); setError(''); }}
+              disabled={deleting}
+              onMouseEnter={e => { e.currentTarget.style.background = '#ece6dc'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#f7f4ef'; }}
+              style={{
+                background: '#f7f4ef', border: '1px solid #ece6dc',
+                color: '#6b6560', fontFamily: 'inherit', fontSize: 13.5, fontWeight: 600,
+                padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+                transition: 'background .15s',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
+      {error && (
+        <div style={{ marginTop: 10, fontSize: 13, color: '#b3502f' }}>{error}</div>
+      )}
     </div>
   );
 }
