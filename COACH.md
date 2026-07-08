@@ -396,6 +396,41 @@ AppShell mobile:
 
 Listed newest-first.
 
+### Session 2026-07e — starter prompts, empty state, onboarding + settings cleanup
+
+#### Starter prompts in CoachRail
+**What:** When `entries.length === 0 && !thinking`, four tappable example chips appear above the composer: "Two eggs and toast", "30 min walk", "Cup of chai with milk", "100g chicken breast". Clicking a chip calls `submit(prompt, 'text')` directly — same path as typing. Chips disappear as soon as anything is logged.  
+**Why:** New users had no signal on what to say to the coach. The empty state text ("tell the coach what you ate or did") was not enough.  
+**Files:** `CoachRail.tsx` — added `entries` store selector, added chips section between mic error and composer.
+
+#### Today empty state card
+**What:** Replaced the plain grey text ("No entries yet…") with a card containing a coach icon, "Nothing logged yet" headline, and directional text. On mobile: "Tap the chat icon in the top-right…" + an "Open coach" button that calls `onOpenCoach()` to open the overlay directly. On desktop: "Use the coach panel on the right".  
+**Files:** `Today.tsx` — added `onOpenCoach?: () => void` prop. `AppShell.tsx` — passes `onOpenCoach={() => setRightOpen(true)}` to both desktop and mobile `<Today>` instances.
+
+#### Onboarding: back button on step 1 signs out
+**What:** `obBack` on step 0 (`StepTrack`) was a no-op. Now calls `supabase.auth.signOut()` then `window.location.href = '/login'`.  
+**Files:** `Onboarding.tsx`.
+
+#### Onboarding: Water intake + Step count marked coming soon
+**What:** Both items in `TRACK_DEFS` now have `comingSoon: true` — non-clickable, 0.6 opacity, "Coming soon" pill badge, muted background. Cannot be toggled so never written to the store.  
+**Files:** `Onboarding.tsx`.
+
+#### Onboarding goals step: water + steps blocks removed
+**What:** The Water intake and Step count editable fields in `StepGoals` were removed. These features have no backend implementation.  
+**Files:** `Onboarding.tsx`.
+
+#### Focus card in onboarding goals step and Settings
+**What:** Green summary card ("YOUR FOCUS" label, target line, live timeline) added to the top of `StepGoals` and inside the "Your goal" card in Settings.  
+- Target line: "Lose X kg" / "Gain X kg" / "Maintain X kg"  
+- Timeline: `weeks = (weightDelta × 7700) / (dailyDeficit × 7)` where `dailyDeficit = TDEE − goal.target`. Shown for `lose` only when `dailyDeficit > 0`. No timeline for `gain` or `maintain`.  
+- TDEE re-derived from Mifflin-St Jeor (same as `compute.ts`) using store fields: `sex`, `activity`, `age`, `weightKg`, `heightCm`.  
+- Recalculates live when user edits the daily kcal field.  
+**Files:** `Onboarding.tsx`, `Settings.tsx`.
+
+#### Settings: mobile-responsive padding
+**What:** Settings outer div padding changed from fixed `32px 40px` to `isMobile ? '20px 16px' : '32px 40px'`.  
+**Files:** `Settings.tsx`.
+
 ### Session 2026-07d — fix mobile scroll for all screens
 
 **Bug:** Scrolling only worked in the CoachRail overlay; Today, Trends, Foods, Settings didn't scroll on mobile.
