@@ -8,11 +8,6 @@ Working document for everything discussed but **not yet shipped**. COACH.md reco
 
 ## In flight (started, not finished)
 
-### Fix: dead "Open coach" button on mobile (2026-07-14)
-**Status:** Fixed on branch `fix/mobile-open-coach-button`, tsc passing, pushed for Vercel preview. Pending: Mudita verifies tap works on phone → merge to main → move this entry to COACH.md changelog (entry already drafted there under session 2026-07h).
-**Bug:** Mobile `<Today>` in AppShell.tsx never received `onOpenCoach` — button rendered but `onClick` was undefined. Desktop branch had the prop but never renders the button. Live since 2026-07e shipped.
-**Reframes Mansi's drop-off:** if she was on mobile, the primary CTA on her empty Today screen was dead — possibly tapped it, got nothing, left. First-log activation idea (below) still stands, but this fix is the prerequisite.
-
 ### `created_at` timestamps on entries + messages (2026-07-10)
 **Status:** SQL run in production Supabase — columns exist. Pending: end-to-end verification (log something, confirm fresh timestamp), then update COACH.md schema section.
 **What:** `alter table entries/messages add column created_at timestamptz not null default now();`
@@ -33,6 +28,8 @@ Working document for everything discussed but **not yet shipped**. COACH.md reco
 3. Schema changes **additive only** — add columns/tables with defaults, never drop/rename what prod code reads. Vercel Instant Rollback does not roll back the DB.
 4. After each prod deploy, 4-step smoke test: log a food → answer a clarifying question → correct an entry → delete an entry (covers RULES 1–5 contract).
 5. Previews share the prod Supabase DB — test with Mudita's own account only.
+5c. Supabase OAuth redirect allow-list now includes `https://*-muditaj28-2492s-projects.vercel.app/**` (added 2026-07-14). Without it, logging in on any preview silently redirected to production (Supabase falls back to the Site URL for non-allow-listed redirects) — made preview testing of logged-in flows impossible and produced a false "fix doesn't work" test result.
+5b. Vercel env vars are scoped per environment — all vars now enabled for Preview as well as Production (fixed 2026-07-14 after first-ever preview build 500'd with MIDDLEWARE_INVOCATION_FAILED; `NEXT_PUBLIC_SUPABASE_URL` + `ANON_KEY` were Production-only). Any *new* env var must be added with both Production and Preview checked.
 6. Deliberately skipped at this scale: staging DB, feature flags, canary.
 
 ### User activity metrics — which signal means what (2026-07-10)
