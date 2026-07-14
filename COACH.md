@@ -396,6 +396,17 @@ AppShell mobile:
 
 Listed newest-first.
 
+### Session 2026-07h — fix dead "Open coach" button on mobile
+
+#### Mobile "Open coach" button did nothing
+**Bug:** The empty-state "Open coach" button on the Today screen (mobile only) had no effect when tapped. The mobile rendering branch in `AppShell.tsx` rendered `<Today onSelectEntry={setSelectedId} />` without the `onOpenCoach` prop, so the button's `onClick` was `undefined`. The 2026-07e entry below claims the prop was passed to both desktop and mobile instances — that was true only for desktop; the mobile branch never got it (or lost it in the 2026-07d mobile layout rewrite). Live since the feature shipped.
+**Impact:** New mobile users' primary call-to-action on an empty Today screen was silently dead — likely a factor in signup-without-first-log drop-offs (see VISION.md funnel notes).
+**Fix:** Added `onOpenCoach={() => setRightOpen(true)}` to the mobile `<Today>` instance. Button remains mobile-only by design (desktop shows the always-visible coach panel instead).
+**Verified:** 2026-07-14 on the Vercel preview — mobile layout, real click → coach overlay opens. (First phone test falsely failed: preview login was redirecting to production until the Supabase redirect allow-list gained the Vercel preview wildcard — see VISION.md deploy workflow notes.)
+**Files:** `AppShell.tsx` (one line, mobile branch).
+
+---
+
 ### Session 2026-07g — delete account feature
 
 #### Delete account (Settings + API route)

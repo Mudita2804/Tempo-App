@@ -250,7 +250,7 @@ export function AppShell() {
         WebkitOverflowScrolling: 'touch',
         background: '#f7f4ef',
       }}>
-        {screen === 'today'    && <Today onSelectEntry={setSelectedId} />}
+        {screen === 'today'    && <Today onSelectEntry={setSelectedId} onOpenCoach={() => setRightOpen(true)} />}
         {screen === 'trends'   && <Trends />}
         {screen === 'foods'    && <Foods onSelectEntry={setSelectedId} />}
         {screen === 'settings' && <Settings />}
