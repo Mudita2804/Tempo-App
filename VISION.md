@@ -41,6 +41,17 @@ Working document for everything discussed but **not yet shipped**. COACH.md reco
   - **mansij.nitb (Mansi Jain):** completed full onboarding in ~2 min (profile + 3 goals exist), then bounced at the Today screen without one coach interaction. Empty-state → coach handoff failed despite the 2026-07e empty-state card/chips.
   - **karwa.ankit32:** OAuth succeeded, quit mid-onboarding (no profile row, no goals). Which step unknown — no instrumentation.
 
+- Snapshot 2026-07-17: 8 signups (7 real — mudita2896@gmail.com confirmed as Mudita's test account, exclude from funnel stats), 161 entries — **zero new entries since Jul 13** (4-day full dormancy, founder included). Real zero-first-log group: 2 of 7 (mansij, karwa). Jul 8–10 cohort stopped cold after 1–3 days. Mudita's own diagnosis: "laziness, no push from TEMPO" — nothing drives day-2 return.
+
+### Planned: daily log-reminder notifications (retention, agreed 2026-07-17)
+Sequence agreed with Mudita:
+1. **v1 — daily email reminder.** Vercel cron → API route → query users with no entry today (`created_at`) → send via Resend (free tier, ~250/month needed) at ~8:30 PM IST with deep link into the coach. Emails already on file from Google OAuth. Skip-if-logged. ~1 session of work.
+2. **Measure ~2 weeks:** emailed → logged-within-2h conversion, using existing created_at analytics.
+3. **v2 — WhatsApp** (Meta Cloud API) only if email shows the nudge works but channel is weak. All users are India-based; WhatsApp is the high-open-rate channel but needs business verification + message templates.
+- Rejected: SMS (per-message cost, no phone numbers collected, low signal in India).
+- Companion: add-to-home-screen / PWA installability — **built 2026-07-17** on branch `feat/pwa-install` (manifest + icons + install prompt; see COACH.md session 2026-07i). Pending preview verification → merge.
+- Note: notifications amplify a habit loop, they don't create one — if email conversion is near zero, the problem is product value on day 2, not channel.
+
 ### Idea: first-log activation flow (from Mansi's drop)
 After onboarding completes, don't land on an empty Today screen — open the coach directly with a personalized first message ("You're set up, Mansi. What did you eat today?"). Converts setup momentum into the first log. Priority: high (user who invested full setup was lost at the value-delivery moment).
 

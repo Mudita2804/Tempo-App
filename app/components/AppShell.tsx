@@ -9,6 +9,7 @@ import { SlideOver } from './SlideOver';
 import { Trends } from './Trends';
 import { Foods } from './Foods';
 import { Settings } from './Settings';
+import { InstallPrompt } from './InstallPrompt';
 
 const NAV_ITEMS: Array<{ id: Screen; label: string }> = [
   { id: 'today',    label: 'Today'    },
@@ -255,6 +256,9 @@ export function AppShell() {
         {screen === 'foods'    && <Foods onSelectEntry={setSelectedId} />}
         {screen === 'settings' && <Settings />}
       </div>
+
+      {/* Add-to-home-screen nudge (self-hides when installed or dismissed) */}
+      <InstallPrompt />
 
       {/* Left nav overlay */}
       {showLeft && (

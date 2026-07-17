@@ -396,6 +396,19 @@ AppShell mobile:
 
 Listed newest-first.
 
+### Session 2026-07i — PWA installability (add to home screen)
+
+#### App manifest + icons + install prompt
+**What:** TEMPO is now installable as a home-screen app. Three pieces:
+- `app/manifest.ts` — Next.js manifest route (`/manifest.webmanifest`, auto-linked): standalone display, start_url `/`, theme `#ffffff`, background `#f7f4ef`, 192/512 icons + 512 maskable.
+- `public/icons/` + `public/apple-touch-icon.png` — generated PNGs (green rounded square, white T, matching the in-app logo). `layout.tsx` metadata adds `icons.apple` and `appleWebApp` for iOS.
+- `app/components/InstallPrompt.tsx` — dismissible bottom card mounted in AppShell's mobile branch. Android/Chrome: captures `beforeinstallprompt`, shows an Install button that triggers the native prompt. iOS Safari (no install event): shows "Share → Add to Home Screen" instructions. Self-hides when already running standalone; dismissal stored in localStorage for 30 days.
+**Why:** Retention friction — TEMPO was a URL, not an app icon; users (founder included) forgot to log. Companion to the planned daily reminder emails (VISION.md).
+**Note:** No service worker — deliberately skipped (offline caching risks stale deploys; not required for installability on modern Chrome, and iOS installs from the manifest alone).
+**Files:** `app/manifest.ts` (new), `app/components/InstallPrompt.tsx` (new), `AppShell.tsx`, `layout.tsx`, `public/` icons (new).
+
+---
+
 ### Session 2026-07h — fix dead "Open coach" button on mobile
 
 #### Mobile "Open coach" button did nothing
